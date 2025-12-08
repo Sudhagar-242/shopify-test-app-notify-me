@@ -1,0 +1,84 @@
+.select-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ----- Native Select ----- */
+select {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 14px;
+    appearance: none;
+    background-color: white;
+}
+
+/* Group label styling */
+.group-label {
+    font-weight: bold;
+    color: #6b7280;
+    background: #f3f4f6;
+}
+
+/* ----- Badges (outside preview) ----- */
+.badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: none;
+    display: inline-block;
+}
+
+/* Badge tones */
+.badge.success {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.badge.warning {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge.info {
+    background: #dbeafe;
+    color: #1e3a8a;
+}
+
+.badge.critical {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge.attention {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
+/* ----- Make <option> look like badges ----- */
+option[data-tone="success"] {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+option[data-tone="warning"] {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+option[data-tone="info"] {
+    background: #dbeafe;
+    color: #1e3a8a;
+}
+
+option[data-tone="critical"] {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+option[data-tone="attention"] {
+    background: #e0e7ff;
+    color: #4338ca;
+}
