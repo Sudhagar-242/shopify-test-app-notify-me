@@ -1,6 +1,4 @@
 <style>
-
-
   /*
 
    ------------------------------ 
@@ -22,14 +20,15 @@
     gap: 0.4rem;
     align-items: center;
     justify-content: center;
-    transition: transform 0.25s ease
-    , box-shadow 0.25s ease;
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease;
     display: none;
   }
 
   .notify:hover {
     transform: rotate(-90deg) translateX(-6px);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.20);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
   }
 
   .notify span {
@@ -38,7 +37,6 @@
     letter-spacing: 0.3px;
     white-space: nowrap;
   }
-
 
   /*
 
@@ -67,7 +65,6 @@
     z-index: 1;
     animation: fadeIn 0.25s ease-out forwards;
   }
-
 
   /*
 
@@ -120,7 +117,7 @@
     gap: 0.75rem;
   }
 
-  .modal input[type="text"] {
+  .modal input[type='text'] {
     width: 100%;
     padding: 0.75rem 1rem;
     border-radius: 8px;
@@ -128,16 +125,16 @@
     font-size: 0.95rem;
   }
 
-  .modal input[type="text"]:focus {
+  .modal input[type='text']:focus {
     outline: none;
     border-color: #667eea;
-    box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.10);
+    box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.1);
   }
 
   /* Buttons */
   .btn {
     padding: 0.75rem 1.2rem;
-    background: linear-gradient(135deg,#667eea,#764ba2);
+    background: linear-gradient(135deg, #667eea, #764ba2);
     color: white;
     border: none;
     border-radius: 8px;
@@ -203,7 +200,6 @@
     }
   }
 
-
   /* Responsive */
   @media (max-width: 600px) {
     .modal {
@@ -217,7 +213,7 @@
 </style>
 
 <script>
-  
+
   const ex_data = {
   store_id: "{{ shop.id }}",
   store_domain: {{ shop.permanent_domain | json }},
@@ -225,12 +221,12 @@
   product_id: "{{ product.id }}",
   variant_id: {{ product.variants[0] | json }}
   }
-  
+
   window.ex_data = ex_data;
   window.variants_zuper = {{ product.variants | json }};
-  
+
   console.log(ex_data)
-  
+
     // console.log({{ product |  json }})
     // console.log({{ localization.available_countries |  json }})
     // console.log({{- localization.country | json -}})
@@ -247,7 +243,8 @@
   role="button"
   aria-haspopup="dialog"
   aria-controls="notifyModal"
-  tabindex="0">
+  tabindex="0"
+>
   <span>Notify Me!</span>
 </div>
 
@@ -255,13 +252,15 @@
   class="modal-container"
   id="notifyModal"
   aria-hidden="true"
-  role="dialog">
+  role="dialog"
+>
   <div class="notify-overlay"></div>
 
   <section
     class="modal"
     role="document"
-    aria-labelledby="notifyTitle">
+    aria-labelledby="notifyTitle"
+  >
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <div>
         <h3 id="notifyTitle">Stay in touch</h3>
@@ -273,7 +272,8 @@
     <form
       id="notifyForm"
       novalidate
-      onerror="">
+      onerror=""
+    >
       <!-- Error message container -->
       <div id="error-message" style="color: red; font-size: 0.9rem;"></div>
       <input
@@ -283,7 +283,8 @@
         placeholder="you@example.com"
         autocomplete="email"
         value="{{ customer.email }}"
-        required />
+        required
+      >
 
       <div>
         {% render 'mobile_number' %}
@@ -295,13 +296,12 @@
   </section>
 </div>
 
-
 {% schema %}
-  {
-    "name": "Notify Me!",
-    "target": "body",
-    "javascript": "notify_me.js",
-    "templates": ["product"],
-    "settings": []
-  }
+{
+  "name": "Notify Me!",
+  "target": "body",
+  "javascript": "notify_me.js",
+  "templates": ["product"],
+  "settings": []
+}
 {% endschema %}
