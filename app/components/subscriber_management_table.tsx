@@ -1,23 +1,8 @@
-import { useState, useEffect } from "react";
-
-interface Submission {
-  id: string;
-  subscriber: string;
-  phone: string;
-  productId: string;
-  productTitle: string;
-  variantTitle: string;
-  emailStatus: string;
-  emailLastSent: string;
-  subscriptionDate: string;
-}
-
-interface PageInfo {
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  endCursor: string | null;
-  startCursor: string | null;
-}
+import { CallbackEvent } from "@shopify/polaris-types";
+import { ActionType } from "app/constants/requests";
+import { GetSubscriberResponse, Subscriber } from "app/types/subscribers";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useFetcher } from "react-router";
 
 interface FilterTabsProps {
   activeFilter: string;
@@ -33,7 +18,6 @@ interface SearchBarProps {
 }
 
 interface FilterMenuProps {
-  show: boolean;
   filterEmailOpened: boolean;
   filterEmailSent: boolean;
   filterEmailPending: boolean;
@@ -43,56 +27,68 @@ interface FilterMenuProps {
 }
 
 interface SortMenuProps {
-  show: boolean;
   sortOrder: string;
   onSortChange: (order: string) => void;
 }
 
 interface SubmissionsTableProps {
-  submissions: Submission[];
+  submissions: Subscriber[];
   loading: boolean;
   selectedIds: string[];
-  pageInfo: PageInfo | null;
+  pageInfo: GetSubscriberResponse["pagination"] | null;
   searchTerm: string;
   onSelectAll: (checked: boolean) => void;
   onSelectRow: (id: string, checked: boolean) => void;
-  onNextPage: () => void;
-  onPreviousPage: () => void;
+  onNextPage: (pageInfo: GetSubscriberResponse["pagination"]) => void;
+  onPreviousPage: (pageInfo: GetSubscriberResponse["pagination"]) => void;
   isAllSelected: boolean;
   isIndeterminate: boolean;
 }
 
 interface TableRowProps {
-  submission: Submission;
+  submission: Subscriber;
   index: number;
   isSelected: boolean;
   onSelect: (id: string, checked: boolean) => void;
 }
 
-function FilterTabs({ activeFilter, onFilterChange }: FilterTabsProps) {
+type FilterOption = {
+  id: string;
+  label: string;
+  value: string;
+};
+
+const FILTER_TABS: FilterOption[] = [
+  {
+    id: "all-tab",
+    label: "All submissions",
+    value: "all",
+  },
+  {
+    id: "email-sent-tab",
+    label: "Email sent",
+    value: "email_sent",
+  },
+  {
+    id: "email-pending-tab",
+    label: "Email pending",
+    value: "email_pending",
+  },
+];
+
+export function FilterTabs({ activeFilter, onFilterChange }: FilterTabsProps) {
   return (
     <s-stack id="tabs-stack" direction="inline" gap="small">
-      <s-clickable-chip
-        id="all-tab"
-        color={activeFilter === "all" ? "strong" : "base"}
-        onClick={() => onFilterChange("all")}
-      >
-        All submissions
-      </s-clickable-chip>
-      <s-clickable-chip
-        id="email-sent-tab"
-        color={activeFilter === "email_sent" ? "strong" : "base"}
-        onClick={() => onFilterChange("email_sent")}
-      >
-        Email sent
-      </s-clickable-chip>
-      <s-clickable-chip
-        id="email-pending-tab"
-        color={activeFilter === "email_pending" ? "strong" : "base"}
-        onClick={() => onFilterChange("email_pending")}
-      >
-        Email pending
-      </s-clickable-chip>
+      {FILTER_TABS.map(({ id, label, value }) => (
+        <s-clickable-chip
+          key={id}
+          id={id}
+          color={activeFilter === value ? "strong" : "base"}
+          onClick={() => onFilterChange(value)}
+        >
+          {label}
+        </s-clickable-chip>
+      ))}
     </s-stack>
   );
 }
@@ -106,36 +102,44 @@ function SearchBar({
 }: SearchBarProps) {
   return (
     <>
-      {searchExpanded ? (
-        <s-stack
-          id="search-expanded-container"
-          direction="inline"
-          gap="small"
-          alignItems="center"
-        >
-          <s-search-field
-            id="search-field"
-            label="Search"
-            labelAccessibilityVisibility="exclusive"
-            placeholder="Search by product title or variant title, sku"
-            value={searchTerm}
-            onInput={(e) => onSearchChange(e.currentTarget.value)}
+      <s-stack
+        id="search-expanded-container"
+        direction="inline"
+        gap="small"
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        {searchExpanded ? (
+          <s-stack direction="inline" gap="base">
+            <s-box>
+              <s-search-field
+                id="search-field"
+                label="Search"
+                labelAccessibilityVisibility="exclusive"
+                placeholder="Search by product title or variant title, sku"
+                value={searchTerm}
+                onInput={(e) => onSearchChange(e.currentTarget.value)}
+              />
+            </s-box>
+            <s-button
+              id="search-close-button"
+              icon="x"
+              onClick={onSearchClose}
+            />
+          </s-stack>
+        ) : (
+          <s-button
+            id="search-icon-button"
+            icon="search"
+            onClick={onSearchExpand}
           />
-          <s-button id="search-close-button" icon="x" onClick={onSearchClose} />
-        </s-stack>
-      ) : (
-        <s-button
-          id="search-icon-button"
-          icon="search"
-          onClick={onSearchExpand}
-        />
-      )}
+        )}
+      </s-stack>
     </>
   );
 }
 
 function FilterMenu({
-  show,
   filterEmailOpened,
   filterEmailSent,
   filterEmailPending,
@@ -143,113 +147,114 @@ function FilterMenu({
   onFilterEmailSentChange,
   onFilterEmailPendingChange,
 }: FilterMenuProps) {
-  if (!show) return null;
-
   return (
-    <s-box
-      id="filter-menu-dropdown"
-      background="base"
-      borderWidth="base"
-      borderColor="base"
-      borderRadius="base"
-      padding="base"
-    >
-      <s-stack id="filter-menu-stack" gap="base">
-        <s-text id="filter-menu-header" type="strong">
-          Filter by
-        </s-text>
-        <s-stack id="filter-options-stack" gap="small">
-          <s-text type="strong">Email Status</s-text>
-          <s-stack direction="inline" gap="small" alignItems="center">
-            <s-checkbox
-              id="filter-email-opened"
-              checked={filterEmailOpened}
-              onChange={(e) =>
-                onFilterEmailOpenedChange(e.currentTarget.checked)
-              }
-            />
-            <s-text>Email opened</s-text>
-          </s-stack>
-          <s-stack direction="inline" gap="small" alignItems="center">
-            <s-checkbox
-              id="filter-email-sent"
-              checked={filterEmailSent}
-              onChange={(e) => onFilterEmailSentChange(e.currentTarget.checked)}
-            />
-            <s-text>Email sent</s-text>
-          </s-stack>
-          <s-stack direction="inline" gap="small" alignItems="center">
-            <s-checkbox
-              id="filter-email-pending"
-              checked={filterEmailPending}
-              onChange={(e) =>
-                onFilterEmailPendingChange(e.currentTarget.checked)
-              }
-            />
-            <s-text>Email pending</s-text>
+    <s-popover id="filter-options-stack">
+      <s-box
+        // id="filter-menu-dropdown"
+        background="base"
+        borderWidth="base"
+        borderColor="base"
+        borderRadius="base"
+        padding="base"
+      >
+        <s-stack id="filter-menu-stack" gap="base">
+          <s-text id="filter-menu-header" type="strong">
+            Filter by
+          </s-text>
+          <s-stack id="filter-options-stack" gap="small">
+            <s-text type="strong">Email Status</s-text>
+            <s-stack direction="inline" gap="small" alignItems="center">
+              <s-checkbox
+                id="filter-email-opened"
+                checked={filterEmailOpened}
+                onChange={(e) =>
+                  onFilterEmailOpenedChange(e.currentTarget.checked)
+                }
+              />
+              <s-text>Email opened</s-text>
+            </s-stack>
+            <s-stack direction="inline" gap="small" alignItems="center">
+              <s-checkbox
+                id="filter-email-sent"
+                checked={filterEmailSent}
+                onChange={(e) =>
+                  onFilterEmailSentChange(e.currentTarget.checked)
+                }
+              />
+              <s-text>Email sent</s-text>
+            </s-stack>
+            <s-stack direction="inline" gap="small" alignItems="center">
+              <s-checkbox
+                id="filter-email-pending"
+                checked={filterEmailPending}
+                onChange={(e) =>
+                  onFilterEmailPendingChange(e.currentTarget.checked)
+                }
+              />
+              <s-text>Email pending</s-text>
+            </s-stack>
           </s-stack>
         </s-stack>
-      </s-stack>
-    </s-box>
+      </s-box>
+    </s-popover>
   );
 }
 
-function SortMenu({ show, sortOrder, onSortChange }: SortMenuProps) {
-  if (!show) return null;
+type SortOrder = "subscribed" | "ascending" | "descending";
+
+const SORT_OPTIONS: { label: string; value: SortOrder }[] = [
+  { label: "Subscribed", value: "subscribed" },
+  { label: "Ascending", value: "ascending" },
+  { label: "Descending", value: "descending" },
+];
+
+export function SortMenu({ sortOrder, onSortChange }: SortMenuProps) {
+  function handleChange(e: CallbackEvent<"s-choice-list">) {
+    const value = e.currentTarget.values[0] as SortOrder;
+    onSortChange(value);
+  }
 
   return (
-    <s-box
-      id="sort-menu-dropdown"
-      background="base"
-      borderWidth="base"
-      borderColor="base"
-      borderRadius="base"
-      padding="base"
-    >
-      <s-stack id="sort-menu-stack" gap="base">
-        <s-text id="sort-menu-header" type="strong">
-          Sort by
-        </s-text>
-        <s-stack id="sort-options-stack" gap="small">
-          <s-clickable
-            id="sort-option-subscribed"
-            onClick={() => onSortChange("subscribed")}
-          >
-            <s-stack direction="inline" gap="small" alignItems="center">
-              <s-text type={sortOrder === "subscribed" ? "strong" : "generic"}>
-                {sortOrder === "subscribed" ? "●" : "○"} Subscribed
-              </s-text>
-            </s-stack>
-          </s-clickable>
-          <s-clickable
-            id="sort-option-ascending"
-            onClick={() => onSortChange("ascending")}
-          >
-            <s-stack direction="inline" gap="small" alignItems="center">
-              <s-text type={sortOrder === "ascending" ? "strong" : "generic"}>
-                {sortOrder === "ascending" ? "●" : "○"} Ascending
-              </s-text>
-            </s-stack>
-          </s-clickable>
-          <s-clickable
-            id="sort-option-descending"
-            onClick={() => onSortChange("descending")}
-          >
-            <s-stack direction="inline" gap="small" alignItems="center">
-              <s-text type={sortOrder === "descending" ? "strong" : "generic"}>
-                {sortOrder === "descending" ? "●" : "○"} Descending
-              </s-text>
-            </s-stack>
-          </s-clickable>
+    <s-popover id="sort-menu-dropdown">
+      <s-box
+        background="base"
+        borderWidth="base"
+        borderColor="base"
+        borderRadius="base"
+        padding="base"
+      >
+        <s-stack gap="small-500">
+          <s-text type="strong">Sort by</s-text>
+
+          <s-stack>
+            <s-choice-list
+              label="Sort Order"
+              labelAccessibilityVisibility="exclusive"
+              onChange={handleChange}
+            >
+              {SORT_OPTIONS.map(({ label, value }) => {
+                const isActive = sortOrder === value;
+                return (
+                  <s-choice
+                    key={value}
+                    value={value}
+                    defaultSelected={isActive}
+                  >
+                    {label}
+                  </s-choice>
+                );
+              })}
+            </s-choice-list>
+          </s-stack>
         </s-stack>
-      </s-stack>
-    </s-box>
+      </s-box>
+    </s-popover>
   );
 }
 
 function TableRow({ submission, index, isSelected, onSelect }: TableRowProps) {
   const formatDate = (dateStr: string): string => {
-    if (!dateStr) return "—";
+    if (!dateStr) return "---";
     try {
       const date = new Date(dateStr);
       return date.toLocaleDateString("en-US", {
@@ -279,42 +284,46 @@ function TableRow({ submission, index, isSelected, onSelect }: TableRowProps) {
   };
 
   return (
-    <s-table-row id={`submission-row-${index}`} key={submission.id}>
+    <s-table-row
+      id={`submission-row-${index}`}
+      key={submission.id}
+      clickDelegate="goto_subscriber"
+    >
       <s-table-cell id={`cell-checkbox-${index}`}>
         <s-checkbox
           id={`checkbox-${index}`}
           checked={isSelected}
           onChange={(e) => onSelect(submission.id, e.currentTarget.checked)}
-          accessibilityLabel={`Select ${submission.subscriber}`}
+          accessibilityLabel={`Select ${submission.email ?? submission?.number}`}
         />
       </s-table-cell>
       <s-table-cell id={`cell-subscriber-${index}`}>
-        <s-text type="strong">{submission.subscriber}</s-text>
+        <s-link id="goto_subscriber" href={submission.id}>
+          <s-text type="strong">{submission.email || "---"}</s-text>
+        </s-link>
       </s-table-cell>
       <s-table-cell id={`cell-phone-${index}`}>
-        <s-text>{submission.phone || "—"}</s-text>
+        <s-text>{submission.number || "---"}</s-text>
       </s-table-cell>
       <s-table-cell id={`cell-product-${index}`}>
-        <s-text>{submission.productTitle}</s-text>
+        <s-text>{submission.product_title || "---"}</s-text>
       </s-table-cell>
       <s-table-cell id={`cell-variant-${index}`}>
-        <s-text>{submission.variantTitle}</s-text>
+        <s-text>{submission.variant_title || "---"}</s-text>
       </s-table-cell>
       <s-table-cell id={`cell-status-${index}`}>
         <s-badge
           id={`status-badge-${index}`}
-          tone={getStatusTone(submission.emailStatus)}
+          tone={getStatusTone(submission.is_sent ? "Email sent" : "")}
         >
-          {submission.emailStatus}
+          {submission.is_sent ? "Email Sent" : "Pending"}
         </s-badge>
       </s-table-cell>
       <s-table-cell id={`cell-email-last-sent-${index}`}>
-        <s-text color="subdued">{formatDate(submission.emailLastSent)}</s-text>
+        <s-text color="subdued">{formatDate(submission.updatedAt)}</s-text>
       </s-table-cell>
       <s-table-cell id={`cell-subscription-date-${index}`}>
-        <s-text color="subdued">
-          {formatDate(submission.subscriptionDate)}
-        </s-text>
+        <s-text color="subdued">{formatDate(submission.createdAt)}</s-text>
       </s-table-cell>
     </s-table-row>
   );
@@ -335,172 +344,289 @@ function SubmissionsTable({
 }: SubmissionsTableProps) {
   return (
     <s-section id="table-section" padding="none">
-      <s-table
-        id="submissions-table"
-        paginate={true}
-        loading={loading}
-        hasNextPage={pageInfo?.hasNextPage || false}
-        hasPreviousPage={pageInfo?.hasPreviousPage || false}
-        onNextPage={onNextPage}
-        onPreviousPage={onPreviousPage}
-      >
-        <s-table-header-row id="table-header-row">
-          <s-table-header id="header-checkbox">
-            <s-checkbox
-              id="select-all-checkbox"
-              checked={isAllSelected}
-              indeterminate={isIndeterminate}
-              onChange={(e) => onSelectAll(e.currentTarget.checked)}
-              accessibilityLabel="Select all submissions"
-            />
-          </s-table-header>
-          <s-table-header id="header-subscriber" listSlot="primary">
-            Subscriber
-          </s-table-header>
-          <s-table-header id="header-phone" listSlot="labeled">
-            Phone
-          </s-table-header>
-          <s-table-header id="header-product" listSlot="labeled">
-            Product
-          </s-table-header>
-          <s-table-header id="header-variant" listSlot="labeled">
-            Variant
-          </s-table-header>
-          <s-table-header id="header-status" listSlot="inline">
-            Status
-          </s-table-header>
-          <s-table-header id="header-email-last-sent" listSlot="labeled">
-            Email last sent
-          </s-table-header>
-          <s-table-header id="header-subscription-date" listSlot="labeled">
-            Subscription date
-          </s-table-header>
-        </s-table-header-row>
-
-        <s-table-body id="table-body">
-          {submissions.length === 0 && !loading ? (
-            <s-table-row id="empty-row">
-              <s-table-cell id="empty-cell">
-                <s-text color="subdued">
-                  {searchTerm
-                    ? "No submissions match your search"
-                    : "No submissions found"}
-                </s-text>
-              </s-table-cell>
-            </s-table-row>
-          ) : (
-            submissions.map((submission, index) => (
-              <TableRow
-                key={submission.id}
-                submission={submission}
-                index={index}
-                isSelected={selectedIds.includes(submission.id)}
-                onSelect={onSelectRow}
+      <div>
+        <s-table
+          id="submissions-table"
+          paginate={true}
+          loading={loading}
+          hasNextPage={pageInfo?.hasNextPage}
+          hasPreviousPage={pageInfo?.hasPreviousPage}
+          onNextPage={() => onNextPage(pageInfo!)}
+          onPreviousPage={() => onPreviousPage(pageInfo!)}
+        >
+          <s-table-header-row id="table-header-row">
+            <s-table-header id="header-checkbox">
+              <s-checkbox
+                id="select-all-checkbox"
+                checked={isAllSelected}
+                indeterminate={isIndeterminate}
+                onChange={(e) => onSelectAll(e.currentTarget.checked)}
+                accessibilityLabel="Select all submissions"
               />
-            ))
-          )}
-        </s-table-body>
-      </s-table>
+            </s-table-header>
+            <s-table-header id="header-subscriber" listSlot="primary">
+              Subscriber
+            </s-table-header>
+            <s-table-header id="header-phone" listSlot="labeled">
+              Phone
+            </s-table-header>
+            <s-table-header id="header-product" listSlot="labeled">
+              Product
+            </s-table-header>
+            <s-table-header id="header-variant" listSlot="labeled">
+              Variant
+            </s-table-header>
+            <s-table-header id="header-status" listSlot="inline">
+              Status
+            </s-table-header>
+            <s-table-header id="header-email-last-sent" listSlot="labeled">
+              Email last sent
+            </s-table-header>
+            <s-table-header id="header-subscription-date" listSlot="labeled">
+              Subscription date
+            </s-table-header>
+          </s-table-header-row>
+
+          <s-table-body id="table-body">
+            {submissions.length === 0 && !loading ? (
+              <s-table-row id="empty-row">
+                <s-table-cell id="empty-cell">
+                  <s-text color="subdued">
+                    {searchTerm
+                      ? "No submissions match your search"
+                      : "No submissions found"}
+                  </s-text>
+                </s-table-cell>
+              </s-table-row>
+            ) : (
+              submissions.map((submission, index) => (
+                <TableRow
+                  key={submission.id}
+                  submission={submission}
+                  index={index}
+                  isSelected={selectedIds.includes(submission.id)}
+                  onSelect={onSelectRow}
+                />
+              ))
+            )}
+          </s-table-body>
+        </s-table>
+      </div>
     </s-section>
   );
 }
 
-export default function SubscribersMAnagement() {
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [filteredSubmissions, setFilteredSubmissions] = useState<Submission[]>(
+export default function SubscribersManagement() {
+  const [submissions, setSubmissions] = useState<Subscriber[]>([]);
+  const [filteredSubmissions, setFilteredSubmissions] = useState<Subscriber[]>(
     [],
   );
-  const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
+  const [pageInfo, setPageInfo] = useState<
+    GetSubscriberResponse["pagination"] | null
+  >(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>("");
+  const [error] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [sortOrder, setSortOrder] = useState<string>("subscribed");
-  const [showSortMenu, setShowSortMenu] = useState<boolean>(false);
-  const [showFilterMenu, setShowFilterMenu] = useState<boolean>(false);
+  const [sortOrder, setSortOrder] = useState<string>(SORT_OPTIONS[0].value);
   const [searchExpanded, setSearchExpanded] = useState<boolean>(false);
   const [filterEmailOpened, setFilterEmailOpened] = useState<boolean>(false);
   const [filterEmailSent, setFilterEmailSent] = useState<boolean>(false);
   const [filterEmailPending, setFilterEmailPending] = useState<boolean>(false);
 
+  const fetcher = useFetcher<GetSubscriberResponse>();
+
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasFetched = useRef(false);
+
+  // Debounced fetch function - DON'T set loading here
+  const debouncedFetch = useCallback(
+    (page: number, limit: number, order: string) => {
+      // Cancel any pending fetch
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Don't queue if already fetching
+      if (fetcher.state !== "idle") {
+        console.log("Fetch in progress, skipping");
+        return;
+      }
+
+      console.log("Scheduling fetch for page:", page);
+
+      // Delay the actual fetch
+      debounceTimerRef.current = setTimeout(() => {
+        // Double-check before submitting
+        if (fetcher.state !== "idle") {
+          console.log("Fetch started during debounce, skipping");
+          return;
+        }
+
+        console.log("Actually fetching page:", page);
+        fetcher.submit(
+          {
+            type: ActionType.GET_SUBSCRIBERS,
+            skip: page.toString(),
+            limit: limit.toString(),
+            order,
+          },
+          {
+            method: "POST",
+            encType: "application/json",
+          },
+        );
+      }, 300);
+    },
+    [fetcher.state], // Add fetcher.state as dependency
+  );
+
+  // Handle loading state based on fetcher.state instead
   useEffect(() => {
-    loadExampleData();
-  }, []);
+    if (fetcher.state === "submitting" || fetcher.state === "loading") {
+      setLoading(true);
+    }
+  }, [fetcher.state]);
 
-  const loadExampleData = (): void => {
-    const exampleSubmissions: Submission[] = [
-      {
-        id: "1",
-        subscriber: "babu@amwhiz.com",
-        phone: "+918825881698",
-        productId: "gid://shopify/Product/1",
-        productTitle: "Biodegradable cardboard pots",
-        variantTitle: "Default Title",
-        emailStatus: "Email opened",
-        emailLastSent: "2024-12-11T16:12:00Z",
-        subscriptionDate: "2024-12-11T00:00:00Z",
-      },
-      {
-        id: "2",
-        subscriber: "heisenberggus@proton.me",
-        phone: "+917428723247",
-        productId: "gid://shopify/Product/2",
-        productTitle: "Poster 1 (varying landscape image aspect ratios)",
-        variantTitle: "16:9",
-        emailStatus: "Email opened",
-        emailLastSent: "2024-12-10T23:35:00Z",
-        subscriptionDate: "2024-12-11T00:00:00Z",
-      },
-      {
-        id: "3",
-        subscriber: "sudhagar@amwhiz.com",
-        phone: "+916379890750",
-        productId: "gid://shopify/Product/3",
-        productTitle: "Socks (2 options)",
-        variantTitle: "Paw / Kids",
-        emailStatus: "Email sent",
-        emailLastSent: "2024-12-09T14:14:00Z",
-        subscriptionDate: "2024-12-09T00:00:00Z",
-      },
-      {
-        id: "4",
-        subscriber: "ledem61349@lavior.com",
-        phone: "",
-        productId: "gid://shopify/Product/4",
-        productTitle: "Knitted Throw Pillows",
-        variantTitle: "Default Title",
-        emailStatus: "Email pending",
-        emailLastSent: "",
-        subscriptionDate: "2024-12-08T00:00:00Z",
-      },
-    ];
+  // Handle fetcher data updates
+  useEffect(() => {
+    if (fetcher.data) {
+      console.log("Set Data");
+      setSubmissions(fetcher.data.data);
+      setPageInfo(fetcher.data.pagination);
+      setLoading(false);
+    }
+  }, [fetcher.data]);
 
-    setSubmissions(exampleSubmissions);
-    setPageInfo({
-      hasNextPage: false,
-      hasPreviousPage: false,
-      endCursor: null,
-      startCursor: null,
-    });
-    setLoading(false);
+  // Initial fetch - runs only once
+  useEffect(() => {
+    if (hasFetched.current) return;
+    if (fetcher.state !== "idle") return; // Extra guard
+
+    hasFetched.current = true;
+    console.log("Initial fetch");
+
+    fetcher.submit(
+      {
+        type: ActionType.GET_SUBSCRIBERS,
+        skip: "1",
+        limit: "10",
+        order: "desc",
+      },
+      {
+        method: "POST",
+        encType: "application/json",
+      },
+    );
+  }, []); // Keep empty - hasFetched ref handles it
+
+  // // Ref to store the debounce timeout
+  // const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // // const hasFetched = useRef(false);
+  // // Ref to track if initial fetch happened
+  // const hasFetched = useRef(false);
+
+  // // Debounced fetch function
+  // const debouncedFetch = useCallback(
+  //   (page: number, limit: number, order: string) => {
+  //     // Cancel any pending fetch
+  //     if (debounceTimerRef.current) {
+  //       clearTimeout(debounceTimerRef.current);
+  //     }
+
+  //     console.log("Inside Debounce");
+
+  //     // Set loading state immediately for UI feedback
+  //     setLoading(true);
+
+  //     // Delay the actual fetch by 300ms
+  //     debounceTimerRef.current = setTimeout(() => {
+  //       fetcher.submit(
+  //         {
+  //           type: ActionType.GET_SUBSCRIBERS,
+  //           skip: page.toString(),
+  //           limit: limit.toString(),
+  //           order,
+  //         },
+  //         {
+  //           method: "POST",
+  //           encType: "application/json",
+  //         },
+  //       );
+  //     }, 500); // 300ms debounce delay
+  //   },
+  //   [], // No dependencies needed - fetcher is stable
+  // );
+
+  // // Cleanup timeout on unmount
+  // useEffect(() => {
+  //   return () => {
+  //     if (debounceTimerRef.current) {
+  //       clearTimeout(debounceTimerRef.current);
+  //     }
+  //   };
+  // }, []);
+
+  // // Initial fetch - runs only once
+  // useEffect(() => {
+  //   if (hasFetched.current) return;
+  //   hasFetched.current = true;
+
+  //   console.log("Inside the Initial");
+
+  //   fetcher.submit(
+  //     {
+  //       type: ActionType.GET_SUBSCRIBERS,
+  //       skip: "1",
+  //       limit: "10",
+  //       order: "desc",
+  //     },
+  //     {
+  //       method: "POST",
+  //       encType: "application/json",
+  //     },
+  //   );
+  // }, []);
+
+  // // Handle fetcher data updates
+  // useEffect(() => {
+  //   if (fetcher.data) {
+  //     console.log("Set Data");
+  //     setSubmissions(fetcher.data.data);
+  //     setPageInfo(fetcher.data.pagination);
+  //     setLoading(false);
+  //   }
+  // }, [fetcher.data]);
+
+  // Updated pagination handlers using debounce
+  const handleNextPage = (
+    pageInfo: GetSubscriberResponse["pagination"],
+  ): void => {
+    debouncedFetch(+pageInfo.currentPage + 1, pageInfo.limit, sortOrder);
+  };
+
+  const handlePreviousPage = (
+    pageInfo: GetSubscriberResponse["pagination"],
+  ): void => {
+    debouncedFetch(+pageInfo.currentPage - 1, pageInfo.limit, sortOrder);
   };
 
   useEffect(() => {
     let filtered = [...submissions];
 
     if (activeFilter === "email_sent") {
-      filtered = filtered.filter((s) => s.emailStatus === "Email sent");
+      filtered = filtered.filter((s) => s?.is_sent);
     } else if (activeFilter === "email_pending") {
-      filtered = filtered.filter((s) => s.emailStatus === "Email pending");
+      filtered = filtered.filter((s) => !s?.is_sent);
     }
 
     if (filterEmailOpened || filterEmailSent || filterEmailPending) {
       filtered = filtered.filter((s) => {
-        if (filterEmailOpened && s.emailStatus === "Email opened") return true;
-        if (filterEmailSent && s.emailStatus === "Email sent") return true;
-        if (filterEmailPending && s.emailStatus === "Email pending")
-          return true;
+        // if (filterEmailOpened && s.is_sent === "Email opened") return true;
+        if (filterEmailSent && s?.is_sent) return true;
+        if (filterEmailPending && !s?.is_sent) return true;
         return false;
       });
     }
@@ -509,19 +635,15 @@ export default function SubscribersMAnagement() {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (s) =>
-          s.productTitle.toLowerCase().includes(term) ||
-          s.variantTitle.toLowerCase().includes(term),
+          s?.product_title?.toLowerCase().includes(term) ||
+          s?.variant_title?.toLowerCase().includes(term),
       );
     }
 
     if (sortOrder === "ascending") {
-      filtered.sort((a, b) =>
-        a.subscriptionDate.localeCompare(b.subscriptionDate),
-      );
+      filtered.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     } else if (sortOrder === "descending") {
-      filtered.sort((a, b) =>
-        b.subscriptionDate.localeCompare(a.subscriptionDate),
-      );
+      filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
 
     setFilteredSubmissions(filtered);
@@ -535,9 +657,27 @@ export default function SubscribersMAnagement() {
     filterEmailPending,
   ]);
 
-  const handleNextPage = (): void => {};
+  // const handleNextPage = (
+  //   pageInfo: GetSubscriberResponse["pagination"],
+  // ): void => {
+  //   fetchPage(
+  //     ActionType.GET_SUBSCRIBERS,
+  //     +pageInfo.currentPage + 1,
+  //     pageInfo.limit,
+  //     sortOrder,
+  //   );
+  // };
 
-  const handlePreviousPage = (): void => {};
+  // const handlePreviousPage = (
+  //   pageInfo: GetSubscriberResponse["pagination"],
+  // ): void => {
+  //   fetchPage(
+  //     ActionType.GET_SUBSCRIBERS,
+  //     +pageInfo.currentPage - 1,
+  //     pageInfo.limit,
+  //     sortOrder,
+  //   );
+  // };
 
   const handleSelectAll = (checked: boolean): void => {
     if (checked) {
@@ -579,16 +719,11 @@ export default function SubscribersMAnagement() {
 
   const handleSortChange = (order: string): void => {
     setSortOrder(order);
-    setShowSortMenu(false);
   };
 
   if (error) {
     return (
-      <s-section
-        id="main-page"
-        heading="Submissions & Products"
-        inlineSize="large"
-      >
+      <s-section id="main-page" heading="Submissions & Products">
         <s-section id="error-section">
           <s-banner id="error-banner" tone="critical">
             <s-text id="error-text">{error}</s-text>
@@ -599,28 +734,14 @@ export default function SubscribersMAnagement() {
   }
 
   return (
-    <s-section
-      id="main-page"
-      heading="Submissions & Products"
-      inlineSize="large"
-    >
-      <s-button-group slot="secondary-actions" id="header-actions">
-        <s-button id="products-view-button" icon="product">
-          Products view
-        </s-button>
-        <s-button id="export-button" icon="export">
-          Export
-        </s-button>
-        <s-button id="import-button" icon="import">
-          Import
-        </s-button>
-        <s-button id="add-subscriber-button" variant="primary" icon="plus">
-          Add subscriber
-        </s-button>
-      </s-button-group>
-
+    <s-section id="main-page" padding="base">
       <s-section id="filters-section">
-        <s-stack id="filters-stack" direction="block" gap="base">
+        <s-stack
+          id="filters-stack"
+          direction="inline"
+          gap="base"
+          justifyContent="space-between"
+        >
           <FilterTabs
             activeFilter={activeFilter}
             onFilterChange={setActiveFilter}
@@ -642,20 +763,21 @@ export default function SubscribersMAnagement() {
 
             <s-button
               id="filter-button"
+              commandFor="filter-options-stack"
               icon="filter"
-              onClick={() => setShowFilterMenu(!showFilterMenu)}
+              // onClick={() => setShowFilterMenu(!showFilterMenu)}
             />
 
             <s-button
               id="sort-menu-trigger"
               icon="sort"
-              onClick={() => setShowSortMenu(!showSortMenu)}
+              commandFor="sort-menu-dropdown"
+              // onClick={() => setShowSortMenu(!showSortMenu)}
             />
           </s-stack>
         </s-stack>
 
         <FilterMenu
-          show={showFilterMenu}
           filterEmailOpened={filterEmailOpened}
           filterEmailSent={filterEmailSent}
           filterEmailPending={filterEmailPending}
@@ -664,11 +786,7 @@ export default function SubscribersMAnagement() {
           onFilterEmailPendingChange={setFilterEmailPending}
         />
 
-        <SortMenu
-          show={showSortMenu}
-          sortOrder={sortOrder}
-          onSortChange={handleSortChange}
-        />
+        <SortMenu sortOrder={sortOrder} onSortChange={handleSortChange} />
 
         <SubmissionsTable
           submissions={filteredSubmissions}

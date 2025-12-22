@@ -24,7 +24,6 @@ import RenderDropdownComponent, {
 import { CallbackEvent } from "@shopify/polaris-types";
 import { useShopifyService } from "app/context/shopify_shop_context";
 import shopifyService from "app/services/shopify_services";
-import SubscribersMAnagement from "app/components/subscriber_management_table";
 import { ActivityItem, AnalyticsProductsInDemand } from "app/types/analytics";
 import RenderAppEmbedComponent from "app/components/app_embed_status";
 import { ThmemeSelectionType } from "app/types/components/theme_embed_status";
@@ -38,6 +37,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     where: { shop: session?.shop },
   });
 
+  console.log(session?.accessToken);
+
   const ShopifyService = shopifyService(admin, session, apiVersion, Store);
 
   return ShopifyService.getIndexLoaderData();
@@ -48,6 +49,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const Store = await prisma.shop.findUnique({
     where: { shop: session?.shop },
   });
+  const ShopifyService = shopifyService(admin, session, apiVersion, Store);
+  console.log("On Action Index");
 
   if (request.method === "POST") {
     const formData = await request.json();
@@ -58,7 +61,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     try {
-      const ShopifyService = shopifyService(admin, session, apiVersion, Store);
       const status = await ShopifyService.getThemeEmbedStatus({
         themeId,
         blockName,
@@ -115,7 +117,7 @@ export default function Index() {
   const [status, setStatus] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("top");
   const [chartComponentData, setchartComponentData] =
-    useState<ChartComponentDataType>(AnalyticsPerfomaceData);
+    useState<ChartComponentDataType>(AnalyticsPerfomaceData || {});
 
   const Service = useShopifyService();
 
@@ -141,10 +143,6 @@ export default function Index() {
   return (
     <>
       <s-page>
-        <s-button slot="primary-action">Hello</s-button>
-        <s-button slot="secondary-actions">Welcome</s-button>
-        <s-button slot="secondary-actions">Browse templates</s-button>
-        <s-button slot="secondary-actions">Import image</s-button>
         <h1 className="mb-2 ml-0 text-2xl font-extrabold text-black">
           Welcome, Notify Me!
         </h1>
@@ -234,8 +232,6 @@ export default function Index() {
           // onTabChange={(value) => setActiveTab(value)}
           tabs={tabs}
         />
-
-        <SubscribersMAnagement />
 
         {/* <s-section id="activity-section" padding="none" slot="aside">
           <s-box id="activity-heading-box" padding="base">

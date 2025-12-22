@@ -2,6 +2,7 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { config } from "process";
+import prisma from "../db.server";
 
 interface UninstallPayloadType {
   store_id: string;
@@ -10,40 +11,35 @@ interface UninstallPayloadType {
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, session, topic, admin } = await authenticate.webhook(request);
+  const { shop, session, topic } = await authenticate.webhook(request);
 
   console.log(`Received ${topic} webhook for ${shop}`);
 
-  const gqlResponse = await admin?.graphql(`
-          #graphql
-          query getData {
-            shop {
-              id
-              myshopifyDomain
-              shopOwnerName
-            }
-          }
-        `);
-
-  const gqlJson = await gqlResponse?.json();
-
-
+  const Store = await prisma.shop.findUnique({
+    where: { shop: session?.shop },
+  });
 
   // ---------------------------
   // Send details to your server
   // ---------------------------
   const uninstallPayload: UninstallPayloadType = {
-    "store_id": gqlJson?.data.shop.id.split('/').pop(),
-    "store_domain": gqlJson?.data.shop.myshopifyDomain,
-    "access_token": session?.accessToken ?? "",
+    store_id: Store?.shopId?.split("/").pop() ?? "",
+    store_domain: Store?.shop ?? "",
+    access_token: Store?.accessToken ?? "",
   };
 
-  console.log(gqlJson, uninstallPayload)
-  
-  const deleteStoreResponse = await fetch(`${process.env.BASE_URL}/store/uninstall`, {
-    method: 'Delete',
-    body: JSON.stringify(uninstallPayload)
-  })
+  console.log(uninstallPayload);
+
+  const deleteStoreResponse = await fetch(
+    `${process.env.BASE_URL}/store/uninstall`,
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(uninstallPayload),
+    },
+  );
 
   console.log("Delete Store Response Status:", deleteStoreResponse.status);
   console.log("Delete Store Response OK:", deleteStoreResponse.ok);

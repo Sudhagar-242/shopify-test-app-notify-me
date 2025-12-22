@@ -7,6 +7,7 @@ import { Store } from "./shopify_services";
 import { AnalyticsOverviewResponseType } from "app/types/app_index";
 import { ChartComponentDataType } from "app/types/chart_component";
 import { ActivityItem, AnalyticsProductsInDemand } from "app/types/analytics";
+import { GetSubscriberResponse, Subscriber } from "app/types/subscribers";
 
 class ShopifyAPIService {
   private readonly admin: AdminApiContext;
@@ -109,10 +110,50 @@ class ShopifyAPIService {
     return this.store?.shopId?.split("/").pop() || "";
   }
 
-  async getSubscribers() {
-    return await fetch(
-      `${this.baseUrl}/notification/subscribe?store_id=${this.storeId}`,
-    ).then((res) => res.json());
+  async getSubscribers(params: {
+    page?: number;
+    limit?: number;
+    storeId: string;
+    order?: "asc" | "desc";
+  }) {
+    const { page = 1, limit = 10, storeId, order = "desc" } = params;
+    const url =
+      `${this.baseUrl}/store/submissions/subscribers` +
+      `?page=${page}&limit=${limit}&store_id=${storeId}&order=${order}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch subscribers");
+    return response;
+  }
+
+  async getProductsTableData(params: {
+    page?: number;
+    limit?: number;
+    storeId: string;
+    order?: "asc" | "desc";
+  }) {
+    const { page = 1, limit = 10, storeId, order = "desc" } = params;
+    const url =
+      `${this.baseUrl}/store/all/products_with_variants` +
+      `?page=${page}&limit=${limit}&store_id=${storeId}&order=${order}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch products Table");
+    return response;
+  }
+
+  async getSpecificSubscriber(params: { userId: string; storeId: string }) {
+    const { userId, storeId } = params;
+
+    const url =
+      `${this.baseUrl}/store/submissions/specific/subscriber` +
+      `?user_id=${userId}&store_id=${storeId}`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch subscriber details");
+    }
+
+    return response.json() as Promise<Subscriber[]>;
   }
 
   async getAnalyticsOverview(): Promise<AnalyticsOverviewResponseType> {
@@ -129,16 +170,57 @@ class ShopifyAPIService {
     ).then((res) => res.json());
   }
 
-  async getRecentActivity(): Promise<ActivityItem[]> {
-    return await fetch(
-      `${this.baseUrl}/store/analytics/recent-activity?store_id=${this.storeId}`,
-    ).then((res) => res.json());
+  async getRecentActivity(retries = 3, delayMs = 500): Promise<ActivityItem[]> {
+    try {
+      const res = await fetch(
+        `${this.baseUrl}/store/analytics/recent-activity?store_id=${this.storeId}`,
+      );
+
+      if (!res.ok) {
+        throw new Error(`Request failed: ${res.status}`);
+      }
+
+      return await res.json();
+    } catch (error) {
+      if (retries === 0) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+      return this.getRecentActivity(
+        retries - 1,
+        delayMs * 2, // exponential backoff
+      );
+    }
   }
 
-  async getDemandingProducts(): Promise<AnalyticsProductsInDemand[]> {
-    return await fetch(
-      `${this.baseUrl}/store/analytics/demanding-products?store_id=${this.storeId}`,
-    ).then((res) => res.json());
+  async getDemandingProducts(
+    retries = 3,
+    delayMs = 500,
+  ): Promise<AnalyticsProductsInDemand[]> {
+    try {
+      const res = await fetch(
+        `${this.baseUrl}/store/analytics/demanding-products?store_id=${this.storeId}`,
+      );
+
+      if (!res.ok) {
+        throw new Error(`Request failed: ${res.status}`);
+      }
+
+      return await res.json();
+    } catch (error) {
+      if (retries === 0) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+      return this.getDemandingProducts(
+        retries - 1,
+        delayMs * 2, // exponential backoff
+      );
+    }
   }
 
   /* ---------------- Helpers ---------------- */

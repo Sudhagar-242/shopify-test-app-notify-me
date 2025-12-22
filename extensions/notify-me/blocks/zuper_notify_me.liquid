@@ -1,9 +1,9 @@
-<style>
+ <style>
   /*
 
-   ------------------------------ 
-   Notify Button (right side tab) 
-   ------------------------------ 
+   ------------------------------
+   Notify Button (right side tab)
+   ------------------------------
 */
   .notify {
     position: fixed;
@@ -40,9 +40,9 @@
 
   /*
 
-   ------------------------------ 
-   Modal container 
-   ------------------------------ 
+   ------------------------------
+   Modal container
+   ------------------------------
 */
   .modal-container {
     position: fixed;
@@ -68,9 +68,9 @@
 
   /*
 
-   ------------------------------ 
-   Modal card 
-   ------------------------------ 
+   ------------------------------
+   Modal card
+   ------------------------------
 */
   .modal {
     position: absolute;
@@ -213,7 +213,6 @@
 </style>
 
 <script>
-
   const ex_data = {
   store_id: "{{ shop.id }}",
   store_domain: {{ shop.permanent_domain | json }},
@@ -226,15 +225,6 @@
   window.variants_zuper = {{ product.variants | json }};
 
   console.log(ex_data)
-
-    // console.log({{ product |  json }})
-    // console.log({{ localization.available_countries |  json }})
-    // console.log({{- localization.country | json -}})
-    // console.log({{ cart |  json }})
-    // console.log({{ localization.market.id | json }})
-    // console.log({{ localization.market.handle |  json }})
-    // console.log({{ shop.permanent_domain |  json }})
-    // console.log({{ shop.domain |  json }})
 </script>
 
 <div

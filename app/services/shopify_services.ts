@@ -5,6 +5,8 @@ import {
 } from "@shopify/shopify-app-react-router/server";
 import shopifyAPIService from "./shopify_api_services";
 import { flattenThemes } from "app/routes/app._index";
+import { GetSubscriberResponse, Subscriber } from "app/types/subscribers";
+import { ProductTableRes } from "app/types/products_table";
 
 export interface Store {
   id: number;
@@ -63,6 +65,52 @@ class ShopifyService {
     };
   }
 
+  async getRequestsPageLoaderData() {
+    const [Subscriber, ProductsTable] = await Promise.all([
+      this.getSubscribers(1, 10, "desc"),
+      this.getProductTableData(1, 10, "desc"),
+    ]);
+
+    return { Subscriber, ProductsTable };
+  }
+
+  async getSubscribers(
+    page?: number,
+    limit?: number,
+    order?: "asc" | "desc",
+  ): Promise<GetSubscriberResponse> {
+    const result = await this.api.getSubscribers({
+      page,
+      limit,
+      storeId: this.store?.shopId?.split("/").pop() as string,
+      order,
+    });
+    const data = result.json() as unknown as GetSubscriberResponse;
+    return data as GetSubscriberResponse;
+  }
+
+  async getProductTableData(
+    page?: number,
+    limit?: number,
+    order?: "asc" | "desc",
+  ): Promise<ProductTableRes> {
+    const result = await this.api.getProductsTableData({
+      page,
+      limit,
+      storeId: this.store?.shopId?.split("/").pop() as string,
+      order,
+    });
+    const data = result.json() as unknown as ProductTableRes;
+    return data as ProductTableRes;
+  }
+
+  async getSpecificSubscriber(
+    userId: string,
+    storeId: string,
+  ): Promise<Subscriber[]> {
+    return await this.api.getSpecificSubscriber({ userId, storeId });
+  }
+
   checkThemeExtensionStatus(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     settingsData: Record<string, any>,
@@ -110,9 +158,10 @@ class ShopifyService {
     return `https://${this.store?.shop}/admin/themes/${normalizedThemeId}/editor?context=apps&template=${"main"}&activateAppId=${apiKey?.split("/")?.pop()}/${blockName}`;
   }
 
-  gotoProductsLink(productId: string) {
-    const normalizedproductId = productId.split("/").pop() as string;
-    return `https://admin.shopify.com/store/${this.store?.shop.split(".").shift()}/products/${normalizedproductId}`;
+  gotoProductsLink(productId: string, variantId = "") {
+    const normalizedProductId = productId.split("/").pop() as string;
+    const normalizedVariantId = variantId.split("/").pop() as string;
+    return `https://admin.shopify.com/store/${this.store?.shop.split(".").shift()}/products/${normalizedProductId}${normalizedVariantId && "?variant="}${normalizedVariantId}`;
   }
 }
 

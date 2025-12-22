@@ -1,247 +1,307 @@
-import { useState, useEffect, useRef } from 'react';
+import { ActionType } from "app/constants/requests";
+import { useShopifyService } from "app/context/shopify_shop_context";
+import { ProductRow, ProductTableRes } from "app/types/products_table";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
+import { useFetcher } from "react-router";
 
-const VIEW_TYPES = {
-    HIGH_DEMAND: 'HIGH_DEMAND',
-    TRENDING: 'TRENDING',
-    HIGH_POTENTIAL: 'HIGH_POTENTIAL',
+const RenderProductTableRow = ({
+  variant,
+  isSelected,
+  onToggleSelect,
+  subscribers,
+  lastAdded,
+}: {
+  variant: ProductRow;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
+  subscribers: number;
+  lastAdded: string;
+}) => {
+  const Service = useShopifyService();
+  const variantId = variant.variant_id.split("/").pop();
+
+  return (
+    <s-table-row id={`product-row-${variantId}`}>
+      {/* <s-table-cell id={`checkbox-cell-${variantId}`}>
+        <s-checkbox
+          id={`checkbox-${variantId}`}
+          checked={isSelected}
+          onChange={() => onToggleSelect(variant.id)}
+        />
+      </s-table-cell> */}
+      <s-table-cell id={`product-cell-${variantId}`}>
+        <s-clickable
+          href={Service?.gotoProductsLink(variant?.product_id, variantId)}
+          target="_blank"
+        >
+          <s-stack direction="inline" gap="small" alignItems="center">
+            {variant.imageUrl && (
+              <s-box inlineSize="40px" blockSize="40px">
+                <s-image
+                  id={`product-image-${variantId}`}
+                  src={variant.imageUrl}
+                  alt={variant.name}
+                  aspectRatio="1/1"
+                  objectFit="cover"
+                  borderRadius="small"
+                />
+              </s-box>
+            )}
+            <s-stack direction="block" gap="small-100">
+              <s-text id={`product-title-${variantId}`} type="strong">
+                {variant.name}
+              </s-text>
+              {variant.variant !== "Default Title" && (
+                <s-text id={`variant-title-${variantId}`} color="subdued">
+                  {variant.variant}
+                </s-text>
+              )}
+            </s-stack>
+          </s-stack>
+        </s-clickable>
+      </s-table-cell>
+      <s-table-cell id={`sku-cell-${variantId}`}>
+        <s-text color="subdued">{variant.sku || "-"}</s-text>
+      </s-table-cell>
+      <s-table-cell id={`quantity-cell-${variantId}`}>
+        <s-text>{variant.variant}</s-text>
+      </s-table-cell>
+      <s-table-cell id={`subscribers-cell-${variantId}`}>
+        <s-text>{subscribers}</s-text>
+      </s-table-cell>
+      <s-table-cell id={`last-added-cell-${variantId}`}>
+        <s-text color="subdued">{lastAdded}</s-text>
+      </s-table-cell>
+    </s-table-row>
+  );
 };
 
-const SAMPLE_DATA: ProductRow[] = [
-    {
-        id: '1',
-        title: 'Premium Wireless Headphones',
-        subtitle: 'Noise Cancelling',
-        thumbnailUrl: 'https://via.placeholder.com/40',
-        currentRequests: 245,
-        avgRequestAge: 3.5,
-        historicalRequests: 1250,
+const renderProductTableHeader = (
+  allSelected: boolean,
+  someSelected: boolean,
+  onToggleSelectAll: (checked: boolean) => void,
+) => {
+  return (
+    <s-table-header-row id="table-header-row">
+      {/* <s-table-header id="header-checkbox">
+        <s-checkbox
+          id="select-all-checkbox"
+          checked={allSelected}
+          indeterminate={someSelected && !allSelected}
+          onChange={(e) => onToggleSelectAll(e.currentTarget.checked)}
+        />
+      </s-table-header> */}
+      <s-table-header id="header-product" listSlot="primary">
+        Product
+      </s-table-header>
+      <s-table-header id="header-sku" listSlot="labeled">
+        SKU
+      </s-table-header>
+      <s-table-header id="header-quantity" listSlot="labeled" format="numeric">
+        Available quantity
+      </s-table-header>
+      <s-table-header
+        id="header-subscribers"
+        listSlot="labeled"
+        format="numeric"
+      >
+        Subscriber(s)
+      </s-table-header>
+      <s-table-header id="header-last-added" listSlot="labeled">
+        Last added
+      </s-table-header>
+    </s-table-header-row>
+  );
+};
+
+const renderEmptyState = (message: string) => {
+  return (
+    <s-table-row id="empty-state-row">
+      <s-table-cell id="empty-state-cell">
+        <s-box padding="large">
+          <s-text color="subdued">{message}</s-text>
+        </s-box>
+      </s-table-cell>
+      <s-table-cell id="empty-cell-2"></s-table-cell>
+      <s-table-cell id="empty-cell-3"></s-table-cell>
+      <s-table-cell id="empty-cell-4"></s-table-cell>
+      <s-table-cell id="empty-cell-5"></s-table-cell>
+      <s-table-cell id="empty-cell-6"></s-table-cell>
+    </s-table-row>
+  );
+};
+
+export default function ProductTable({
+  productTableData,
+}: {
+  productTableData: ProductTableRes;
+}) {
+  console.log("Product table inside the Variants", productTableData);
+  const [variants, setVariants] = useState<ProductRow[]>(
+    [], // productTableData?.data,
+  );
+  console.log("variants", variants);
+  const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
+  const [pageInfo, setPageInfo] = useState<
+    ProductTableRes["pagination"] | null
+  >(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetcher = useFetcher<ProductTableRes>();
+
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasFetched = useRef(false);
+
+  // Debounced fetch function - DON'T set loading here
+  const debouncedFetch = useCallback(
+    (page: number, limit: number, order: string) => {
+      // Cancel any pending fetch
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Don't queue if already fetching
+      if (fetcher.state !== "idle") {
+        console.log("Fetch in progress, skipping");
+        return;
+      }
+
+      console.log("Scheduling fetch for page:", page);
+
+      // Delay the actual fetch
+      debounceTimerRef.current = setTimeout(() => {
+        // Double-check before submitting
+        if (fetcher.state !== "idle") {
+          console.log("Fetch started during debounce, skipping");
+          return;
+        }
+
+        console.log("Actually fetching page:", page);
+        fetcher.submit(
+          {
+            type: ActionType.GET_PRODUCTS,
+            skip: page.toString(),
+            limit: limit.toString(),
+            order,
+          },
+          {
+            method: "POST",
+            encType: "application/json",
+          },
+        );
+      }, 300);
     },
-    {
-        id: '2',
-        title: 'USB-C Fast Charger',
-        subtitle: '65W Power Delivery',
-        thumbnailUrl: 'https://via.placeholder.com/40',
-        currentRequests: 189,
-        avgRequestAge: 2.1,
-        historicalRequests: 856,
-    },
-    {
-        id: '3',
-        title: 'Portable SSD 1TB',
-        subtitle: 'NVMe',
-        thumbnailUrl: 'https://via.placeholder.com/40',
-        currentRequests: 312,
-        avgRequestAge: 4.8,
-        historicalRequests: 2103,
-    },
-    {
-        id: '4',
-        title: 'Smart Watch Pro',
-        subtitle: 'Fitness Tracking',
-        thumbnailUrl: 'https://via.placeholder.com/40',
-        currentRequests: 156,
-        avgRequestAge: 1.9,
-        historicalRequests: 743,
-    },
-    {
-        id: '5',
-        title: 'Mechanical Keyboard RGB',
-        subtitle: 'Cherry MX Switches',
-        thumbnailUrl: 'https://via.placeholder.com/40',
-        currentRequests: 428,
-        avgRequestAge: 5.2,
-        historicalRequests: 1967,
-    },
-];
+    [fetcher.state], // Add fetcher.state as dependency
+  );
 
-interface ProductRow {
-    id: string;
-    title: string;
-    subtitle?: string;
-    thumbnailUrl?: string;
-    currentRequests: number;
-    avgRequestAge?: number;
-    historicalRequests: number;
-}
+  // Handle loading state based on fetcher.state instead
+  useEffect(() => {
+    if (fetcher.state === "submitting" || fetcher.state === "loading") {
+      setLoading(true);
+    }
+  }, [fetcher.state]);
 
-interface ProductTableProps {
-    data: ProductRow[];
-}
+  // Handle fetcher data updates
+  useEffect(() => {
+    if (fetcher.data) {
+      console.log("Set Data");
+      setVariants(fetcher.data.data);
+      setPageInfo(fetcher.data.pagination);
+      setLoading(false);
+    }
+  }, [fetcher.data]);
 
-const tableStyles = `
-  .back-in-stock-table {
-    width: 100%;
-    border-collapse: collapse;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
+  // Initial fetch - runs only once
+  useEffect(() => {
+    if (hasFetched.current) return;
+    if (fetcher.state !== "idle") return; // Extra guard
 
-  .back-in-stock-table thead {
-    background-color: #f5f5f5;
-    border-bottom: 2px solid #e0e0e0;
-  }
+    hasFetched.current = true;
+    console.log("Initial fetch");
 
-  .back-in-stock-table thead th {
-    padding: 12px 16px;
-    text-align: left;
-    font-weight: 600;
-    font-size: 14px;
-    color: #333;
-    white-space: nowrap;
-  }
-
-  .back-in-stock-table tbody tr {
-    border-bottom: 1px solid #f0f0f0;
-    transition: background-color 0.2s ease;
-  }
-
-  .back-in-stock-table tbody tr:hover {
-    background-color: #fafafa;
-  }
-
-  .back-in-stock-table tbody tr:last-child {
-    border-bottom: none;
-  }
-
-  .back-in-stock-table td {
-    padding: 12px 16px;
-    font-size: 14px;
-    color: #666;
-  }
-
-  .back-in-stock-table td:first-child {
-    text-align: center;
-  }
-
-  .product-cell {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .product-image {
-    width: 40px;
-    height: 40px;
-    border-radius: 6px;
-    object-fit: cover;
-    background-color: #f0f0f0;
-  }
-
-  .product-info div:first-child {
-    font-weight: 500;
-    color: #333;
-    margin-bottom: 2px;
-  }
-
-  .product-info div:last-child {
-    font-size: 12px;
-    color: #999;
-  }
-
-  .metric-cell {
-    text-align: center;
-    font-weight: 600;
-    color: #333;
-  }
-
-  .metric-cell.secondary {
-    color: #666;
-    font-weight: 400;
-  }
-`;
-
-export default function ProductTable({ data }: ProductTableProps) {
-    const [viewType, setViewType] = useState(VIEW_TYPES.HIGH_DEMAND);
-    const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
-    const selectAllRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        console.log(viewType)
-    }, [viewType])
-
-    const safeData = data && data.length > 0 ? data : SAMPLE_DATA;
-
-    useEffect(() => {
-        if (!selectAllRef.current) return;
-        const allSelected = safeData.length > 0 && safeData.every(row => selectedRows[row.id]);
-        const someSelected = safeData.some(row => selectedRows[row.id]);
-        selectAllRef.current.indeterminate = someSelected && !allSelected;
-    }, [selectedRows, safeData]);
-
-    const toggleSelect = (id: string) => {
-        setSelectedRows(prev => ({ ...prev, [id]: !prev[id] }));
-    };
-
-    const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = event.currentTarget.checked;
-        const newSelected: Record<string, boolean> = {};
-        safeData.forEach(row => {
-            newSelected[row.id] = checked;
-        });
-        setSelectedRows(newSelected);
-    };
-
-    return (
-        <>
-            <style>{tableStyles}</style>
-            <s-stack gap="base">
-                <table className="back-in-stock-table">
-                    <thead>
-                        <tr>
-                            <th style={{ width: '40px' }}>
-                                <s-checkbox
-                                    ref={selectAllRef}
-                                    checked={safeData.length > 0 && safeData.every(row => selectedRows[row.id])}
-                                    onChange={handleSelectAll}
-                                />
-                            </th>
-                            <th>Product</th>
-                            <th style={{ textAlign: 'center' }}>Current Requests</th>
-                            <th style={{ textAlign: 'center' }}>Recent Request</th>
-                            <th style={{ textAlign: 'center' }}>Total Requests</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {safeData.map(row => (
-                            <tr key={row.id}>
-                                <td>
-                                    <s-checkbox
-                                        checked={!!selectedRows[row.id]}
-                                        onChange={() => toggleSelect(row.id)}
-                                    />
-                                </td>
-                                <td>
-                                    <div className="product-cell">
-                                        {row.thumbnailUrl && (
-                                            <img
-                                                src={row.thumbnailUrl}
-                                                alt={row.title}
-                                                className="product-image"
-                                            />
-                                        )}
-                                        <div className="product-info">
-                                            <div>{row.title}</div>
-                                            {row.subtitle && (
-                                                <div>{row.subtitle}</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="metric-cell">{row.currentRequests}</td>
-                                <td className="metric-cell secondary">{row.avgRequestAge != null ? `${row.avgRequestAge}h` : '–'}</td>
-                                <td className="metric-cell">{row.historicalRequests}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-
-                <div style={{ paddingTop: '8px' }}>
-                    <s-link href="#" tone="primary">
-                        See all
-                    </s-link>
-                </div>
-            </s-stack>
-        </>
+    fetcher.submit(
+      {
+        type: ActionType.GET_PRODUCTS,
+        skip: "1",
+        limit: "10",
+        order: "desc",
+      },
+      {
+        method: "POST",
+        encType: "application/json",
+      },
     );
+  }, []); // Keep empty - hasFetched ref handles it
+
+  const handleNextPage = (pageInfo: ProductTableRes["pagination"]): void => {
+    debouncedFetch(+pageInfo.currentPage + 1, pageInfo.limit, "desc");
+  };
+
+  const handlePreviousPage = (
+    pageInfo: ProductTableRes["pagination"],
+  ): void => {
+    debouncedFetch(+pageInfo.currentPage - 1, pageInfo.limit, "desc");
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedRows((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    const newSelected: Record<string, boolean> = {};
+    variants.forEach((variant) => {
+      newSelected[variant.id] = checked;
+    });
+    setSelectedRows(newSelected);
+  };
+
+  const allSelected =
+    variants?.length > 0 &&
+    variants?.every((variant) => selectedRows[variant.id]);
+  const someSelected = variants?.some((variant) => selectedRows[variant.id]);
+
+  if (error) {
+    return (
+      <s-page id="main-page" heading="Back in Stock Products">
+        <s-banner id="error-banner" tone="critical">
+          <s-text>{error}</s-text>
+        </s-banner>
+      </s-page>
+    );
+  }
+
+  return (
+    <s-page id="main-page" heading="Back in Stock Products" inlineSize="large">
+      <s-section id="products-section" padding="none">
+        <s-table
+          id="products-table"
+          paginate={true}
+          loading={loading}
+          hasNextPage={pageInfo?.hasNextPage || false}
+          hasPreviousPage={pageInfo?.hasPreviousPage || false}
+          onNextPage={() => handleNextPage(pageInfo!)}
+          onPreviousPage={() => handlePreviousPage(pageInfo!)}
+        >
+          {renderProductTableHeader(allSelected, someSelected, handleSelectAll)}
+
+          <s-table-body id="table-body">
+            {variants?.length === 0 && !loading
+              ? renderEmptyState("No products found")
+              : variants.map((variant) => (
+                  <Fragment key={variant.variant_id + variant.id}>
+                    <RenderProductTableRow
+                      variant={variant}
+                      isSelected={!!selectedRows[variant.id]}
+                      onToggleSelect={toggleSelect}
+                      subscribers={variant.subscribers}
+                      lastAdded={variant.lastAdded}
+                    />
+                  </Fragment>
+                ))}
+          </s-table-body>
+        </s-table>
+      </s-section>
+    </s-page>
+  );
 }

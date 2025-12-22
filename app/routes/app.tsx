@@ -56,9 +56,11 @@ export default function App() {
         store={store}
       >
         <s-app-nav>
-          <s-link href="/app">Home</s-link>
-          <s-link href="/app/additional">Requests</s-link>
-          <s-link href="/app/additional/111">Subscriber</s-link>
+          <s-link href="/app" rel="home">
+            Home
+          </s-link>
+          <s-link href="/app/requests">Requests</s-link>
+          <s-link href="/app/additional">Subscriber</s-link>
           <s-link href="/app/additional/222">Settings</s-link>
         </s-app-nav>
         <Outlet />

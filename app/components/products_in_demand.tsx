@@ -129,7 +129,7 @@ export default function RenderProductsInDemandComponent({
           )}
         </s-stack>
       </s-section>
-      {loading || fetcher.state === "submitting" ? (
+      {/* {loading || fetcher.state === "submitting" ? (
         <s-spinner accessibilityLabel="Loading Theme Status" size="base" />
       ) : (
         <s-badge
@@ -138,7 +138,7 @@ export default function RenderProductsInDemandComponent({
         >
           {error ? "Error" : isActive ? "Active" : "Disabled"}
         </s-badge>
-      )}
+      )} */}
     </>
   );
 }

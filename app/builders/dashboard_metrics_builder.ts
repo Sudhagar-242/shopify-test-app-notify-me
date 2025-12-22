@@ -14,19 +14,19 @@ export const BuildAnalyticsOverview: (
   const labels: MetricsCard[] = [
     {
       title: "Total Requests",
-      value: totalRequests,
+      value: totalRequests || 0,
     },
     {
       title: "Total SubscribersList",
-      value: totalSubscribers,
+      value: totalSubscribers || 0,
     },
     {
       title: "Total Conversions",
-      value: totalConversion,
+      value: totalConversion || 0,
     },
     {
       title: "Sent Notifications",
-      value: sentNotifications,
+      value: sentNotifications || 0,
     },
   ];
 

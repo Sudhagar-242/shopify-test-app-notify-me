@@ -38,7 +38,7 @@ if (host === "localhost") {
 
 export default defineConfig({
   server: {
-    allowedHosts: [host, "ngrok-free.dev"],
+    allowedHosts: [host, "arturo-multilobed-tasia.ngrok-free.dev"],
     cors: {
       preflightContinue: true,
     },

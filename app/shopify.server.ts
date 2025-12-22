@@ -43,15 +43,14 @@ const shopify = shopifyApp({
         // Send details to your server
         // ---------------------------
         const webhookBody = {
-          "store_id": gqlJson.data.shop.id.split('/').pop(),
-          "store_domain": gqlJson.data.shop.myshopifyDomain,
-          "owner": gqlJson.data.shop.shopOwnerName,
-          "access_token": session.accessToken,
-          "scopes": session.scope?.split(','),
-          "is_deleted": false,
-          "is_active": "true"
+          store_id: gqlJson.data.shop.id.split("/").pop(),
+          store_domain: gqlJson.data.shop.myshopifyDomain,
+          owner: gqlJson.data.shop.shopOwnerName,
+          access_token: session.accessToken,
+          scopes: session.scope?.split(","),
+          is_deleted: false,
+          is_active: "true",
         };
-
 
         console.log("Sending to webhook.site:", webhookBody);
 
@@ -76,7 +75,6 @@ const shopify = shopifyApp({
           },
         });
 
-
         // Log each response
         for (const res of responses) {
           console.log("Webhook Response Status:", res.status);
@@ -93,7 +91,6 @@ const shopify = shopifyApp({
         console.log("Webhooks Registered Successfully");
 
         console.log("=== AFTER AUTH DONE ===");
-
       } catch (err) {
         console.error("❌ ERROR IN afterAuth:", err);
       }
