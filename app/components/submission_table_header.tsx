@@ -67,18 +67,6 @@ export default function SubmissionAndProducts({
             }
             return null;
           })}
-
-          <s-button id="export-button" icon="export">
-            Export
-          </s-button>
-
-          <s-button id="import-button" icon="import" disabled>
-            Import
-          </s-button>
-
-          <s-button id="add-subscriber-button" variant="primary">
-            Add subscriber
-          </s-button>
         </s-stack>
       </s-stack>
 

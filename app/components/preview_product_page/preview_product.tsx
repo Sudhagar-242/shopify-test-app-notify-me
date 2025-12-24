@@ -93,9 +93,11 @@ function PreviewField({ field }: { field: DynamicFieldConfig }) {
 
     case "terms":
       return (
-        <s-checkbox checked={field.defaultSelected} required={field.required}>
-          {field.value}
-        </s-checkbox>
+        <s-checkbox
+          defaultChecked={field.defaultSelected}
+          required={field.required}
+          label={field?.value}
+        />
       );
 
     default:
@@ -104,7 +106,10 @@ function PreviewField({ field }: { field: DynamicFieldConfig }) {
 }
 
 interface HtmlPreviewFieldProps {
-  field: DynamicFieldConfig & { placeholder?: string };
+  field: DynamicFieldConfig & {
+    placeholder?: string;
+    defaultValue: string | boolean;
+  };
 }
 
 function HtmlPreviewField({ field }: HtmlPreviewFieldProps) {
@@ -152,13 +157,21 @@ function HtmlPreviewField({ field }: HtmlPreviewFieldProps) {
             </label>
           )}
 
-          <select className="preview-input" required={field.required}>
-            <option value="" disabled selected>
+          <select
+            className="preview-input"
+            required={field.required}
+            defaultValue={field?.defaultValue}
+          >
+            <option value="" disabled>
               {field.placeholder || "Select an option"}
             </option>
 
             {(field.options || "").split(/\r?\n|,/).map((opt, i) => (
-              <option key={i} value={opt.trim()}>
+              <option
+                key={i}
+                value={opt.trim()}
+                selected={field?.defaultValue === opt?.trim()}
+              >
                 {opt.trim()}
               </option>
             ))}
@@ -185,6 +198,7 @@ function HtmlPreviewField({ field }: HtmlPreviewFieldProps) {
                   name={field.id}
                   value={opt.trim()}
                   required={field.required && field.type === "radio"}
+                  defaultChecked={field?.defaultValue === opt?.trim()}
                 />
                 <span>{opt.trim()}</span>
               </label>
@@ -199,8 +213,10 @@ function HtmlPreviewField({ field }: HtmlPreviewFieldProps) {
           <label className="preview-option">
             <input
               type="checkbox"
-              defaultChecked={field.defaultSelected}
-              required={field.required}
+              defaultChecked={
+                field.defaultSelected || (field?.defaultValue as boolean)
+              }
+              required={field?.required}
             />
             <span>{field.value}</span>
           </label>
@@ -221,13 +237,7 @@ function HtmlPreviewForm({ formData }: { formData: AppearanceForm }) {
       onSubmit={(e) => e.preventDefault()}
       noValidate
     >
-      <h3 className="preview-form-title">
-        {formData.heading || "Get notified when available"}
-      </h3>
-
-      {formData.subHeading && (
-        <p className="preview-form-subtitle">{formData.subHeading}</p>
-      )}
+      <h3 className="preview-form-title">{"Get notified when available"}</h3>
 
       <div className="preview-form-fields">
         {formData.fields.map((field) => (
@@ -260,9 +270,7 @@ function HtmlPreviewForm({ formData }: { formData: AppearanceForm }) {
 
 export default function ProductPreview({
   price = "$50.00 USD",
-  buttonText = "Email me when available",
-  buttonTone = "neutral",
-  instructionText = "Click 'Email me when available' to open form submit",
+  instructionText = "Fill out the form to get notified by Zuper when this product is back in stock",
   formData,
 }: ProductPreviewProps) {
   const [isHover, setIsHover] = useState(false);

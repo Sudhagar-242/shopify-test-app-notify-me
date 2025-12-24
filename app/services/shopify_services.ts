@@ -7,6 +7,7 @@ import shopifyAPIService from "./shopify_api_services";
 import { flattenThemes } from "app/routes/app._index";
 import { GetSubscriberResponse, Subscriber } from "app/types/subscribers";
 import { ProductTableRes } from "app/types/products_table";
+import { AppearanceForm } from "app/routes/app.requests._index";
 
 export interface Store {
   id: number;
@@ -45,6 +46,7 @@ class ShopifyService {
       AnalyticsRecentActivity,
       AnalyticsPerfomaceData,
       AnalyticsDemandingProducts,
+      AppearanceSettings,
     ] = await Promise.all([
       this.api.getApp(),
       this.api.getThemes(),
@@ -52,6 +54,7 @@ class ShopifyService {
       this.api.getRecentActivity(),
       this.api.getAnalyticsPerformance("7_days"),
       this.api.getDemandingProducts(),
+      this.api.getAppearanceMetaFields(),
     ]);
 
     return {
@@ -62,16 +65,34 @@ class ShopifyService {
       AnalyticsRecentActivity,
       AnalyticsPerfomaceData,
       AnalyticsDemandingProducts,
+      AppearanceSettings,
     };
   }
 
   async getRequestsPageLoaderData() {
-    const [Subscriber, ProductsTable] = await Promise.all([
-      this.getSubscribers(1, 10, "desc"),
-      this.getProductTableData(1, 10, "desc"),
+    const [appearanceResponse] = await Promise.all([
+      // this.getSubscribers(1, 10, "desc"),
+      // this.getProductTableData(1, 10, "desc"),
+      this.api.getAppearanceMetaFields(),
     ]);
 
-    return { Subscriber, ProductsTable };
+    let appearanceForm: AppearanceForm | null = null;
+
+    try {
+      const rawValue = appearanceResponse?.shop?.appearance?.value;
+
+      if (typeof rawValue === "string") {
+        appearanceForm = JSON.parse(rawValue) as AppearanceForm;
+      }
+    } catch (error) {
+      console.error("Failed to parse AppearanceForm", error);
+    }
+
+    return {
+      // Subscriber,
+      // ProductsTable,
+      AppearanceForm: appearanceForm,
+    };
   }
 
   async getSubscribers(
@@ -150,6 +171,15 @@ class ShopifyService {
       await this.api.fetchThemeSettingsData(normalizedThemeId);
 
     return this.checkThemeExtensionStatus(settingsData, blockName);
+  }
+
+  async saveAppearanceSettings(appearanceForm: AppearanceForm) {
+    return await this.api?.saveMetaField(
+      appearanceForm as unknown as FormData,
+      "zuper_notify_me",
+      "appearance",
+      "json",
+    );
   }
 
   /* Theme Link Generator For Enable The Theme App Extension */

@@ -27,9 +27,14 @@ import shopifyService from "app/services/shopify_services";
 import { ActivityItem, AnalyticsProductsInDemand } from "app/types/analytics";
 import RenderAppEmbedComponent from "app/components/app_embed_status";
 import { ThmemeSelectionType } from "app/types/components/theme_embed_status";
-import { statusOptionsDashBoard } from "app/constants/constants";
+import {
+  appearanceFormSettings,
+  statusOptionsDashBoard,
+} from "app/constants/constants";
 import RenderProductsInDemandComponent from "app/components/products_in_demand";
 import RecentActivity from "app/components/recent_activity";
+import { ActionType } from "app/constants/requests";
+import { AppearanceForm } from "./app.requests._index";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -54,6 +59,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (request.method === "POST") {
     const formData = await request.json();
+    if (formData["type"] === ActionType.POST_APPEARANCE) {
+      const { appearance } = formData;
+      const result = await ShopifyService.saveAppearanceSettings(
+        appearance as AppearanceForm,
+      );
+      return result;
+    }
+
     const { themeId, blockName } = formData;
 
     if (!themeId || !blockName) {
@@ -106,6 +119,7 @@ export default function Index() {
     AnalyticsPerfomaceData,
     AnalyticsDemandingProducts,
     Store,
+    AppearanceSettings,
   } = useLoaderData<typeof loader>();
 
   console.log("App", App);
@@ -120,6 +134,21 @@ export default function Index() {
     useState<ChartComponentDataType>(AnalyticsPerfomaceData || {});
 
   const Service = useShopifyService();
+
+  useEffect(() => {
+    if (!AppearanceSettings) {
+      fetcher?.submit(
+        {
+          type: ActionType.POST_APPEARANCE,
+          appearance: JSON.stringify(appearanceFormSettings),
+        },
+        {
+          method: "POST",
+          encType: "application/json",
+        },
+      );
+    }
+  }, []);
 
   // const isLoading =
   //   ["loading", "submitting"].includes(fetcher.state) &&
@@ -149,69 +178,69 @@ export default function Index() {
         <MetricsGrid cards={BuildAnalyticsOverview(AnalyticsOverviewData)} />
         <s-section>
           <s-stack gap="large">
-            <s-stack direction="inline" justifyContent="space-between">
-              <span></span>
-
-              <RenderDropdownComponent
-                options={statusOptionsDashBoard}
-                selectedValue={status ?? "Products Options"}
-                onSelect={(value: string | number) => setStatus(String(value))}
-                changeValueOnSelect={
-                  ((value: ChartComponentDataType) =>
-                    setchartComponentData(value)) as <ChartComponentDataType>(
-                    value: ChartComponentDataType,
-                  ) => void
-                }
-                menuId="status-filter-menu"
-                buttonId="status-filter-button"
-                storeId={Store?.shopId?.split("/").pop()}
-              />
-            </s-stack>
-
             <s-stack>
-              <div className="max-w-fit">
-                <s-clickable
-                  paddingBlock="small-400"
-                  paddingInline="small-100"
-                  borderRadius="base"
-                  background="strong"
-                >
-                  <s-grid gap="small-300">
-                    <s-heading>{"Back in stock notifications"}</s-heading>
-                    <s-stack direction="inline" gap="small-200">
-                      <s-text>
-                        {
-                          chartComponentData.summary?.backInStockNotifications
-                            ?.count
-                        }
-                      </s-text>
-                      <s-badge
-                        tone={
-                          +chartComponentData.summary?.backInStockNotifications
-                            ?.change > 0
-                            ? "success"
-                            : "critical"
-                        }
-                        icon={
-                          +chartComponentData.summary?.backInStockNotifications
-                            ?.change > 0
-                            ? "arrow-up"
-                            : "arrow-down"
-                        }
-                      >
-                        {
-                          chartComponentData.summary?.backInStockNotifications
-                            ?.change
-                        }
-                        %
-                      </s-badge>
-                    </s-stack>
-                  </s-grid>
-                </s-clickable>
-              </div>
+              <s-stack direction="inline" justifyContent="space-between">
+                <div className="max-w-fit">
+                  <s-clickable
+                    paddingBlock="small-400"
+                    paddingInline="small-100"
+                    borderRadius="base"
+                    background="strong"
+                  >
+                    <s-grid gap="small-300">
+                      <s-heading>{"Back in stock notifications"}</s-heading>
+                      <s-stack direction="inline" gap="small-200">
+                        <s-text>
+                          {chartComponentData.summary?.backInStockNotifications
+                            ?.count || 0}
+                        </s-text>
+                        <s-badge
+                          tone={
+                            +chartComponentData.summary
+                              ?.backInStockNotifications?.change > 0
+                              ? "success"
+                              : "critical"
+                          }
+                          icon={
+                            +chartComponentData.summary
+                              ?.backInStockNotifications?.change > 0
+                              ? "arrow-up"
+                              : "arrow-down"
+                          }
+                        >
+                          {
+                            chartComponentData.summary?.backInStockNotifications
+                              ?.change
+                          }
+                          %
+                        </s-badge>
+                      </s-stack>
+                    </s-grid>
+                  </s-clickable>
+                </div>
 
+                <s-box>
+                  <RenderDropdownComponent
+                    options={statusOptionsDashBoard}
+                    selectedValue={status ?? "Products Options"}
+                    onSelect={(value: string | number) =>
+                      setStatus(String(value))
+                    }
+                    changeValueOnSelect={
+                      ((value: ChartComponentDataType) =>
+                        setchartComponentData(value)) as <
+                        ChartComponentDataType,
+                      >(
+                        value: ChartComponentDataType,
+                      ) => void
+                    }
+                    menuId="status-filter-menu"
+                    buttonId="status-filter-button"
+                    storeId={Store?.shopId?.split("/").pop()}
+                  />
+                </s-box>
+              </s-stack>
               <ChartComponent chartData={chartComponentData} />
-              {/* <TestCard /> */}
             </s-stack>
           </s-stack>
         </s-section>
@@ -281,7 +310,12 @@ export default function Index() {
           </s-table>
         </s-section> */}
 
-        <RecentActivity recentActivity={AnalyticsRecentActivity} />
+        <s-box slot="aside">
+          <h1 className="mb-2 ml-0 text-2xl font-extrabold text-transparent">
+            Recent Activty
+          </h1>
+          <RecentActivity recentActivity={AnalyticsRecentActivity} />
+        </s-box>
       </s-page>
     </>
   );

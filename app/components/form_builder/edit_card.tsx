@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Expandable from "../expandable";
+import { CallbackEvent } from "@shopify/polaris-types";
 
 export type BaseDynamicFieldConfig = {
   id: string;
@@ -354,8 +355,16 @@ function FieldRenderer({ fields, onChange, errors }: FieldRendererProps) {
                 onInput={(e: any) => onChange(f.name, e.currentTarget.value)}
                 error={errorKey ? errors?.[errorKey] : undefined}
               >
+                <s-option
+                  value={"none"}
+                  defaultSelected={field?.defaultValue === "none"}
+                ></s-option>
                 {(f.options || "").split(/\r?\n|,/).map((opt, i) => (
-                  <s-option key={i} value={opt.trim()}>
+                  <s-option
+                    key={i}
+                    value={opt.trim()}
+                    defaultSelected={field?.defaultValue === opt?.trim()}
+                  >
                     {opt.trim()}
                   </s-option>
                 ))}
@@ -398,8 +407,11 @@ function FieldRenderer({ fields, onChange, errors }: FieldRendererProps) {
                 key={index}
                 name={f.name}
                 label={f.label}
-                checked={Boolean(f.defaultSelected)}
+                defaultChecked={f?.defaultSelected}
                 error={errorKey ? errors?.[errorKey] : undefined}
+                onInput={(e: CallbackEvent<"s-checkbox">) =>
+                  onChange(f.name, e.currentTarget.checked)
+                }
               />
             );
           }

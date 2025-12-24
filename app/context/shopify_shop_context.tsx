@@ -51,7 +51,8 @@ export const ServiceProvider: React.FC<{
 export const useShopifyService = () => {
   const context = useContext(ServiceContext);
   if (!context) {
-    throw new Error("useShopifyService must be used within ServiceProvider");
+    console.log("useShopifyService must be used within ServiceProvider");
+    return null;
   }
 
   return context.service;
@@ -60,7 +61,7 @@ export const useShopifyService = () => {
 export const useShopifyContext = () => {
   const context = useContext(ServiceContext);
   if (!context) {
-    throw new Error("useShopifyContext must be used within ServiceProvider");
+    console.log("useShopifyContext must be used within ServiceProvider");
   }
   return context;
 };

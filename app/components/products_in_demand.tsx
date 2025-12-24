@@ -79,14 +79,15 @@ export default function RenderProductsInDemandComponent({
           })}
         </s-stack>
         <s-stack id="products-in-demand-list" gap="none" direction="block">
-          {products.length === 0 ? (
+          {Array.isArray(products) && products.length === 0 ? (
             <s-box id="products-in-demand-empty" padding="base">
               <s-text id="products-in-demand-empty-text" color="subdued">
                 No products found
               </s-text>
             </s-box>
           ) : (
-            products.map((product, index) => (
+            Array.isArray(products) &&
+            products?.map((product, index) => (
               <s-clickable
                 key={product.id || index}
                 id={`demand-product-${index}`}

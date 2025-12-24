@@ -34,6 +34,7 @@ import {
   FieldError,
   useAppearanceValidation,
 } from "app/hooks/useAppearanceValidation";
+import { appearanceFormSettings } from "app/constants/constants";
 // IconType import removed — use string for s-button icons
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -42,10 +43,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     where: { shop: session?.shop },
   });
   const ShopifyService = shopifyService(admin, session, apiVersion, Store);
-  // const { Subscriber, ProductsTable } =
-  //   await ShopifyService.getRequestsPageLoaderData();
+  const { AppearanceForm } = await ShopifyService.getRequestsPageLoaderData();
 
-  // return { Subscriber, ProductsTable };
+  return { AppearanceForm };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -75,6 +75,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return result;
       }
 
+      case ActionType.POST_APPEARANCE: {
+        const { appearance } = formData;
+        const result = await ShopifyService.saveAppearanceSettings(
+          appearance as AppearanceForm,
+        );
+        return result;
+      }
+
       default:
         return [{ error: "Invalid action type" }, { status: 400 }];
     }
@@ -88,31 +96,41 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 const TabsMethod: (
   submissions: GetSubscriberResponse,
   products: ProductTableRes,
+  AppearanceForm: AppearanceForm,
 ) => () => {
   label: string;
   value: string;
   section: JSX.Element;
   aside?: JSX.Element;
-}[] = (submissions: GetSubscriberResponse, products: ProductTableRes) => () => [
-  {
-    label: "Submissions & Products",
-    value: "requests",
-    section: (
-      <SubmissionAndProducts submissions={submissions} products={products} />
-    ),
-  },
-  {
-    label: "Appearance",
-    value: "appearance",
-    section: <Appearance />,
-  },
-];
+}[] =
+  (
+    submissions: GetSubscriberResponse,
+    products: ProductTableRes,
+    AppearanceForm: AppearanceForm,
+  ) =>
+  () => [
+    {
+      label: "Submissions & Products",
+      value: "requests",
+      section: (
+        <SubmissionAndProducts submissions={submissions} products={products} />
+      ),
+    },
+    {
+      label: "Appearance",
+      value: "appearance",
+      section: <Appearance appearanceSettings={AppearanceForm} />,
+    },
+  ];
 
 function Request() {
-  // const { Subscriber, ProductsTable } = useLoaderData<typeof loader>();
-  const Tabs = TabsMethod({} as GetSubscriberResponse, {} as ProductTableRes)();
+  const { AppearanceForm } = useLoaderData<typeof loader>();
+  const Tabs = TabsMethod(
+    {} as GetSubscriberResponse,
+    {} as ProductTableRes,
+    AppearanceForm!,
+  )();
   const [currentTab, setCurrentTab] = useState<(typeof Tabs)[0]>(Tabs[0]);
-  const fetcher = useFetcher<typeof action>();
 
   // console.log("Products Table", ProductsTable);
 
@@ -181,160 +199,11 @@ export type AppearanceForm = {
   fields: DynamicFieldConfig[];
 };
 
-const appearanceForm: AppearanceForm = {
-  product_detail_show: "float",
-  notify_me: {
-    normalTextColor: "#FFFFFF",
-    normalBgColor: "#008060",
-    hoverTextColor: "#FFFFFF",
-    hoverBgColor: "#006E52",
-    fontSize: 16,
-    padding: 14,
-    borderCorner: 4,
-  },
-  subscribe: {
-    normalTextColor: "#000000",
-    normalBgColor: "#FFD814",
-    hoverTextColor: "#000000",
-    hoverBgColor: "#F7CA00",
-    fontSize: 14,
-    padding: 12,
-    borderCorner: 6,
-  },
-  footer: "We will notify you once the product is back in stock.",
-  fields: [
-    {
-      id: "fld_email",
-      type: "text",
-      label: "Email address",
-      showLabel: true,
-      required: true,
-      placeholder: "Enter your email",
-    },
-    {
-      id: "fld_phone",
-      type: "text",
-      label: "Phone number",
-      showLabel: true,
-      required: false,
-      placeholder: "Optional phone number",
-    },
-    {
-      id: "fld_country",
-      type: "select",
-      label: "Country",
-      showLabel: true,
-      required: true,
-      placeholder: "Select your country",
-      options: "India\nUnited States\nUnited Kingdom",
-      defaultValue: "India",
-    },
-    {
-      id: "fld_notify",
-      type: "checkbox",
-      label: "Notify me via",
-      showLabel: true,
-      required: false,
-      options: "Email,SMS",
-      defaultValue: "Email",
-    },
-    {
-      id: "fld_terms",
-      type: "terms",
-      label: "Terms & Conditions",
-      showLabel: false,
-      required: true,
-      value: "I agree to receive notifications about product availability.",
-      defaultSelected: false,
-    },
-  ],
-};
-
-export function validateAppearance(values: AppearanceForm): AppearanceErrors {
-  return {
-    product_detail: validateProductDetail(values?.product_detail_show),
-    notify_me: validateButton(values.notify_me),
-    subscribe: validateButton(values.subscribe),
-    footer: validateFooter(values.footer),
-    fields: validateDynamicFields(values.fields),
-  };
-}
-
-function validateProductDetail(value: string): FieldError {
-  return value ? undefined : "Please select a display option";
-}
-
-function validateFooter(value: string): FieldError {
-  if (!value.trim()) return "Footer cannot be empty";
-  if (value.length > 200) return "Footer must be under 200 characters";
-  return undefined;
-}
-
-function validateButton(btn: ButtonStyleValues): AppearanceErrors["notify_me"] {
-  const errors: Partial<Record<keyof ButtonStyleValues, FieldError>> = {};
-
-  if (btn.fontSize < 12 || btn.fontSize > 30) {
-    errors.fontSize = "Font size must be between 12 and 30";
-  }
-
-  if (btn.padding < 0 || btn.padding > 40) {
-    errors.padding = "Padding must be between 0 and 40";
-  }
-
-  if (btn.borderCorner < 0 || btn.borderCorner > 20) {
-    errors.borderCorner = "Border radius must be between 0 and 20";
-  }
-
-  return Object.keys(errors).length ? errors : undefined;
-}
-
-function validateDynamicFields(
-  fields: DynamicFieldConfig[],
-): DynamicFieldErrors | undefined {
-  const errors: DynamicFieldErrors = {};
-
-  for (const field of fields) {
-    const fieldErrors: DynamicFieldErrors["x"] = {};
-
-    // Base validation (all fields)
-    if (!field.label.trim()) {
-      fieldErrors.label = "Label is required";
-    }
-
-    // Type-specific validation
-    switch (field.type) {
-      case "text":
-      case "textarea":
-        if (field.required && !field.placeholder.trim()) {
-          fieldErrors.placeholder = "Placeholder is required";
-        }
-        break;
-
-      case "select":
-      case "checkbox":
-      case "radio":
-        if (!field.options.trim()) {
-          fieldErrors.options = "At least one option is required";
-        }
-        break;
-
-      case "terms":
-        if (!field.value.trim()) {
-          fieldErrors.value = "Terms text cannot be empty";
-        }
-        break;
-    }
-
-    // Attach only if errors exist
-    if (Object.keys(fieldErrors).length > 0) {
-      errors[field.id] = fieldErrors;
-    }
-  }
-
-  return Object.keys(errors).length ? errors : undefined;
-}
-
-function Appearance() {
+function Appearance({
+  appearanceSettings,
+}: {
+  appearanceSettings: AppearanceForm;
+}) {
   const {
     values,
     savedData,
@@ -344,12 +213,32 @@ function Appearance() {
     dirtyFields,
     setField,
     isDirty,
-  } = useDirtyForm<AppearanceForm>(appearanceForm);
+  } = useDirtyForm<AppearanceForm>(
+    appearanceSettings ?? appearanceFormSettings,
+  );
   const appearanceFormKeys = Object.fromEntries(
-    Object.keys(appearanceForm).map((key) => [key, key.toString()]),
+    Object.keys(appearanceFormSettings).map((key) => [key, key.toString()]),
   ) as Record<keyof AppearanceForm, keyof AppearanceForm>;
 
   const { errors, isValid } = useAppearanceValidation(values);
+  const fetcher = useFetcher<typeof action>();
+
+  console.log("appearance", values);
+
+  useEffect(() => {
+    if (!appearanceSettings) {
+      fetcher?.submit(
+        {
+          type: ActionType.POST_APPEARANCE,
+          appearance: JSON.stringify(appearanceFormSettings),
+        },
+        {
+          method: "POST",
+          encType: "application/json",
+        },
+      );
+    }
+  }, []);
 
   const expandableMenus = [
     {
@@ -438,6 +327,16 @@ function Appearance() {
   const handleSave = () => {
     if (!isValid) return;
     markSaved();
+    fetcher.submit(
+      {
+        type: ActionType.POST_APPEARANCE,
+        appearance: JSON.stringify(values),
+      },
+      {
+        method: "POST",
+        encType: "application/json",
+      },
+    );
   };
 
   console.log(errors);

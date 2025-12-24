@@ -8,6 +8,10 @@ import { AnalyticsOverviewResponseType } from "app/types/app_index";
 import { ChartComponentDataType } from "app/types/chart_component";
 import { ActivityItem, AnalyticsProductsInDemand } from "app/types/analytics";
 import { GetSubscriberResponse, Subscriber } from "app/types/subscribers";
+import { CREATE_OR_UPDATE_METAFIELD } from "app/queries/create_or_update_metafield";
+import { AppearanceForm } from "app/routes/app.requests._index";
+import { GET_APPEARANCE_FORM } from "app/queries/get_appearance_data";
+import { AppearanceFormGQLRes } from "app/types/appearence_form";
 
 class ShopifyAPIService {
   private readonly admin: AdminApiContext;
@@ -72,6 +76,29 @@ class ShopifyAPIService {
         apiKey: string;
       };
     };
+  }
+
+  async getAppearanceMetaFields() {
+    const response = await this.admin.graphql(GET_APPEARANCE_FORM);
+    return (await response.json())?.data as AppearanceFormGQLRes;
+  }
+
+  async saveMetaField(
+    value: FormData,
+    namespace: string,
+    key: string,
+    type: string,
+  ) {
+    const resp = await this.admin.graphql(CREATE_OR_UPDATE_METAFIELD, {
+      variables: {
+        ownerId: this.store?.shopId,
+        namespace,
+        key,
+        type,
+        value,
+      },
+    });
+    return resp;
   }
 
   /* ---------------- Shopify Theme App Extension Fetch ---------------- */

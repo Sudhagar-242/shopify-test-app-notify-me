@@ -1,8 +1,6 @@
 import { ButtonStyleValues } from "app/components/form_components/button_style_editor";
-import {
-  AppearanceForm,
-  validateAppearance,
-} from "app/routes/app.requests._index";
+import { AppearanceForm } from "app/routes/app.requests._index";
+import { validateAppearance } from "app/validations/appearence_settings_validations";
 import { useMemo } from "react";
 
 export type FieldError = string | undefined;

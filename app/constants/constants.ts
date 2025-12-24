@@ -1,4 +1,5 @@
 import { DropdownOption } from "app/components/dropdown_component";
+import { AppearanceForm } from "app/routes/app.requests._index";
 
 export const defaultImage: string =
   "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image.png";
@@ -256,3 +257,72 @@ export const COUNTRIES = [
   { country: "ZM", code: "260" },
   { country: "ZW", code: "263" },
 ];
+
+export const appearanceFormSettings: AppearanceForm = {
+  product_detail_show: "float",
+  notify_me: {
+    normalTextColor: "#FFFFFF",
+    normalBgColor: "#008060",
+    hoverTextColor: "#FFFFFF",
+    hoverBgColor: "#006E52",
+    fontSize: 16,
+    padding: 14,
+    borderCorner: 4,
+  },
+  subscribe: {
+    normalTextColor: "#000000",
+    normalBgColor: "#FFD814",
+    hoverTextColor: "#000000",
+    hoverBgColor: "#F7CA00",
+    fontSize: 14,
+    padding: 12,
+    borderCorner: 6,
+  },
+  footer: "We will notify you once the product is back in stock.",
+  fields: [
+    {
+      id: "fld_email",
+      type: "text",
+      label: "Email address",
+      showLabel: true,
+      required: true,
+      placeholder: "Enter your email",
+    },
+    {
+      id: "fld_phone",
+      type: "text",
+      label: "Phone number",
+      showLabel: true,
+      required: false,
+      placeholder: "Optional phone number",
+    },
+    {
+      id: "fld_country",
+      type: "select",
+      label: "Country",
+      showLabel: true,
+      required: true,
+      placeholder: "Select your country",
+      options: "India\nUnited States\nUnited Kingdom",
+      defaultValue: "India",
+    },
+    {
+      id: "fld_notify",
+      type: "checkbox",
+      label: "Notify me via",
+      showLabel: true,
+      required: false,
+      options: "Email,SMS",
+      defaultValue: "Email",
+    },
+    {
+      id: "fld_terms",
+      type: "terms",
+      label: "Terms & Conditions",
+      showLabel: false,
+      required: true,
+      value: "I agree to receive notifications about product availability.",
+      defaultSelected: false,
+    },
+  ],
+};
