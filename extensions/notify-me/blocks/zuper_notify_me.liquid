@@ -1,0 +1,965 @@
+{% assign country_options = 'AF:93,AX:358,AL:355,DZ:213,AS:1684,AD:376,AO:244,AI:1264,AQ:672,AG:1268,AR:54,AM:374,AW:297,AU:61,AT:43,AZ:994,BS:1242,BH:973,BD:880,BB:1246,BY:375,BE:32,BZ:501,BJ:229,BM:1441,BT:975,BO:591,BA:387,BW:267,BR:55,IO:246,BN:673,BG:359,BF:226,BI:257,KH:855,CM:237,CA:1,CV:238,KY:345,CF:236,TD:235,CL:56,CN:86,CX:61,CC:61,CO:57,KM:269,CG:242,CD:243,CK:682,CR:506,CI:225,HR:385,CU:53,CY:357,CZ:420,DK:45,DJ:253,DM:1767,DO:1849,EC:593,EG:20,SV:503,GQ:240,ER:291,EE:372,ET:251,FK:500,FO:298,FJ:679,FI:358,FR:33,GF:594,PF:689,GA:241,GM:220,GE:995,DE:49,GH:233,GI:350,GR:30,GL:299,GD:1473,GP:590,GU:1671,GT:502,GG:44,GN:224,GW:245,GY:595,HT:509,VA:379,HN:504,HK:852,HU:36,IS:354,IN:91,ID:62,IR:98,IQ:964,IE:353,IM:44,IL:972,IT:39,JM:1876,JP:81,JE:44,JO:962,KZ:77,KE:254,KI:686,KP:850,KR:82,KW:965,KG:996,LA:856,LV:371,LB:961,LS:266,LR:231,LY:218,LI:423,LT:370,LU:352,MO:853,MK:389,MG:261,MW:265,MY:60,MV:960,ML:223,MT:356,MH:692,MQ:596,MR:222,MU:230,YT:262,MX:52,FM:691,MD:373,MC:377,MN:976,ME:382,MS:1664,MA:212,MZ:258,MM:95,NA:264,NR:674,NP:977,NL:31,NC:687,NZ:64,NI:505,NE:227,NG:234,NU:683,NF:672,MP:1670,NO:47,OM:968,PK:92,PW:680,PS:970,PA:507,PG:675,PY:595,PE:51,PH:63,PN:872,PL:48,PT:351,PR:1,QA:974,RO:40,RU:7,RW:250,RE:262,BL:590,SH:290,KN:1869,LC:1758,MF:590,PM:508,VC:1784,WS:685,SM:378,ST:239,SA:966,SN:221,RS:381,SC:248,SL:232,SG:65,SK:421,SI:386,SB:677,SO:252,ZA:27,SS:211,GS:500,ES:34,LK:94,SD:249,SR:597,SJ:47,SZ:268,SE:46,CH:41,SY:963,TW:886,TJ:992,TZ:255,TH:66,TL:670,TG:228,TK:690,TO:676,TT:1868,TN:216,TR:90,TM:993,TC:1649,TV:688,UG:256,UA:380,AE:971,GB:44,US:1,UY:598,UZ:998,VU:678,VE:58,VN:84,VG:1284,VI:1340,WF:681,YE:967,ZM:260,ZW:263'
+  | split: ','
+%}
+{% assign appearance_settings = shop.metafields.zuper_notify_me.appearance %}
+
+<style>
+  * {
+    box-sizing: border-box;
+  }
+
+  .preview-field input::placeholder {
+    opacity: 0.5;
+    filter: grayscale(50%);
+  }
+
+  /* Preview Section */
+  .preview-section {
+    max-width: 400px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .preview-section h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  .product-image-placeholder {
+    background: #e5e5e5;
+    height: 150px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+
+  .product-price {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .description-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .description-line {
+    background: #e5e5e5;
+    height: 12px;
+    border-radius: 4px;
+  }
+
+  .notify-button,
+  .preview-submit-btn {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.active {
+    display: flex;
+  }
+
+  .modal-content {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    width: 60%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* Form */
+  .preview-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .preview-form-title {
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .preview-form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .preview-label {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .preview-label .required {
+    color: #dc2626;
+  }
+
+  .preview-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+  }
+
+  .preview-input:focus {
+    outline: none;
+    border-color: var(--accent-color, #3b82f6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .preview-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .preview-option {
+    display: flex;
+    gap: 8px;
+    font-size: 14px;
+  }
+
+  .preview-phone-wrapper {
+    display: flex;
+    gap: 8px;
+  }
+
+  .preview-phone-country,
+  .preview-phone-input {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+  }
+
+  .close-btn {
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+  }
+
+  .preview-footer {
+    font-size: 12px;
+    text-align: center;
+    color: #666;
+  }
+
+  /* Validation Error Styles */
+  .field-error {
+    color: #dc2626;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .preview-input.error,
+  .preview-phone-input.error,
+  .preview-phone-country.error {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  }
+
+  .preview-options.error {
+    padding: 8px;
+    border-radius: 6px;
+    background: rgba(220, 38, 38, 0.05);
+  }
+
+  .float-button {
+    width: max-content;
+    position: fixed;
+    top: 60%;
+    z-index: 99999;
+    transform: rotateZ(270deg);
+    transform-origin: right;
+  }
+</style>
+
+<script>
+  const ex_data = {
+  store_id: "{{ shop.id }}",
+  store_domain: {{ shop.permanent_domain | json }},
+  email: {{ shop.email | json }},
+  product_id: "{{ product.id }}",
+  variant_id: {{ product.variants[0] | json }}
+  }
+
+  window.variants_zuper = {{ product.variants | json }};
+  // const formData = {{ shop.metafields.zuper_notify_me.appearance  }}
+
+  console.log({{ appearance_settings }})
+</script>
+
+<div
+  id="zuper-notify-button"
+  class="notify-button button btn-primary"
+  role="button"
+  aria-haspopup="dialog"
+  aria-controls="notifyModal"
+  tabindex="0"
+>
+  <span class="instruction-text">Notify Me!</span>
+</div>
+
+<div id="modal-overlay" class="modal-overlay">
+  <div class="modal-content">
+    <form id="preview-form" class="preview-form" novalidate>
+      <h3 class="preview-form-title">Get notified when available</h3>
+      <div id="form-fields" class="preview-form-fields"></div>
+
+      <button type="submit" id="submit-btn" class="preview-submit-btn">Subscribe</button>
+      <div id="form-footer" class="preview-footer"></div>
+    </form>
+
+    <div style="text-align: center;">
+      <button type="button" id="close-btn" class="close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const formData = {{ appearance_settings }};
+  const COUNTRIES = [];
+
+  {% for country in country_options -%}
+    {% assign parts = country | split: ":" %}
+    COUNTRIES.push({ country: "{{ parts[0] }}", code: "{{ parts[1] }}" });
+  {%- endfor %}
+
+const buttonSelectors = [
+  'form[action*="/cart/add"]',
+  ".product-form-inline-atc",
+  ".shopify-product-form",
+  ".product-form",
+  ".add-cart-wrapper",
+  ".product-add",
+  ".action-button",
+  ".product-single__add-to-cart",
+  ".product-detail__form"
+].reduce((t, e) => {
+  t.push(`${e} button[type="submit"]`);
+  t.push(`${e} input[type="submit"]`);
+  return t;
+}, []);
+
+const fallbackSelectors = [ ".group-block-content .price",
+  ".price__container",
+  ".product__price",
+  ".price",
+  ".price-item",
+  ".shopify-product-form",
+  ".product-form",
+  ".product-form-inline-atc",
+  ".add-to-cart",
+  ".add-cart-wrapper",
+  ".product-unavailable",
+  ".product-out-of-stock",
+  ".sold_out",
+  ".sold-out__container",
+  ".shop-button-soldout",
+  ".modal_price",
+  ".purchase",
+  ".purchase-section",
+  ".product__price",
+  ".product-price",
+  ".product-add",
+  ".action-button",
+  ".product-information-buttons",
+  ".Shopify-product-details__short-description",
+  ".product-single__add-to-cart",
+  ".product-single__price-product-template",
+  ".product-single__quantity",
+  ".product-detail__form",
+  ".product-single__meta",
+  ".product-single__incoming",
+  ".product-single__policies",
+  ".product_meta"]
+
+  /**
+     * Validates all form fields based on their configuration
+     * @param {HTMLFormElement} form - The form element to validate
+     * @param {Array} fieldsConfig - Array of field configurations from formData.fields
+     * @returns {Object} - { isValid: boolean, errors: Array<{fieldId: string, message: string}> }
+     */
+    function validateForm(form, fieldsConfig) {
+      const errors = [];
+      
+      fieldsConfig.forEach(field => {
+        const fieldId = field.id;
+
+        if (field.id === 'fld_phone') {
+            const countrySelect = form.querySelector('[name="country"]');
+            const phoneInput = form.querySelector('[name="phone_number"]');
+            const countryValue = countrySelect ? countrySelect.value : '';
+            const phoneValue = phoneInput ? phoneInput.value.trim() : '';
+            
+            if (field.required) {
+              if (!countryValue) {
+                errors.push({ fieldId: 'country', message: 'Please select a country code' });
+              }
+              if (!phoneValue) {
+                errors.push({ fieldId: 'phone_number', message: 'Phone number is required' });
+              } else if (!/^\d{6,15}$/.test(phoneValue.replace(/[\s\-]/g, ''))) {
+                errors.push({ fieldId: 'phone_number', message: 'Please enter a valid phone number (6-15 digits)' });
+              }
+          }
+          return ;
+        }
+        
+        switch (field.type) {
+          case 'text':
+          case 'textarea': {
+            const input = form.querySelector(`[name="${fieldId}"]`);
+            const value = input ? input.value.trim() : '';
+            
+            if (field.required && !value) {
+              errors.push({ fieldId, message: `${field.label || 'This field'} is required` });
+            }
+            break;
+          }
+          
+          case 'select': {
+            const select = form.querySelector(`[name="${fieldId}"]`);
+            const value = select ? select.value : '';
+            
+            if (field.required && !value) {
+              errors.push({ fieldId, message: `Please select a ${field.label || 'option'}` });
+            }
+            break;
+          }
+          
+          case 'checkbox': {
+            const checkboxes = form.querySelectorAll(`[name="${fieldId}"]:checked`);
+            
+            if (field.required && checkboxes.length === 0) {
+              errors.push({ fieldId, message: `Please select at least one ${field.label || 'option'}` });
+            }
+            break;
+          }
+          
+          case 'radio': {
+            const radios = form.querySelectorAll(`[name="${fieldId}"]:checked`);
+            
+            if (field.required && radios.length === 0) {
+              errors.push({ fieldId, message: `Please select a ${field.label || 'option'}` });
+            }
+            break;
+          }
+          
+          case 'terms': {
+            const checkbox = form.querySelector(`[name="${fieldId}"]`);
+            
+            if (field.required && (!checkbox || !checkbox.checked)) {
+              errors.push({ fieldId, message: 'You must accept the terms' });
+            }
+            break;
+          }
+          
+        }
+      });
+      
+      return {
+        isValid: errors.length === 0,
+        errors
+      };
+    }
+
+    /**
+     * Displays validation errors on the form
+     * @param {Array} errors - Array of error objects from validateForm
+     */
+    function showValidationErrors(errors) {
+      clearValidationErrors();
+      
+      errors.forEach(error => {
+        const field = document.querySelector(`[name="${error.fieldId}"]`);
+        if (field) {
+          // Add error class
+          if (field.classList.contains('preview-input') || 
+              field.classList.contains('preview-phone-input') ||
+              field.classList.contains('preview-phone-country')) {
+            field.classList.add('error');
+          }
+          
+          // For checkbox/radio, add error to parent options container
+          const optionsContainer = field.closest('.preview-options');
+          if (optionsContainer) {
+            optionsContainer.classList.add('error');
+          }
+          
+          // Create and insert error message
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'field-error';
+          errorDiv.textContent = error.message;
+          
+          const wrapper = field.closest('.preview-field');
+          if (wrapper && !wrapper.querySelector('.field-error')) {
+            wrapper.appendChild(errorDiv);
+          }
+        }
+      });
+    }
+
+    /**
+     * Clears all validation errors from the form
+     */
+    function clearValidationErrors() {
+      document.querySelectorAll('.field-error').forEach(el => el.remove());
+      document.querySelectorAll('.error').forEach(el => el.classList.remove('error'));
+    }
+
+    class ZuperNotifyBlock {
+  constructor(options = {}) {
+    this.inline = options.inline ?? true;
+    this.position = options.position || "below";
+    this.floatSide = options.floatSide || "right";
+
+    this.buttonSelectors = buttonSelectors;
+    this.fallbackSelectors = fallbackSelectors;
+    this.observer = null;
+  }
+
+  init() {
+    this.insert();
+    this.observe();
+  }
+
+  getExistingButton() {
+    return document.getElementById("zuper-notify-button");
+  }
+
+  findTarget() {
+    for (const selector of this.buttonSelectors) {
+      const btn = document.querySelector(selector);
+      if (btn) return btn;
+    }
+
+    for (const selector of this.fallbackSelectors) {
+      const el = document.querySelector(selector);
+      if (el) return el;
+    }
+
+    return null;
+  }
+
+  insert() {
+    const button = this.getExistingButton();
+    if (!button) return;
+
+    if (button.dataset.zuperMounted === "true") return;
+
+    if (!this.inline) {
+      document.body.appendChild(button);
+      this.applyFloatingStyles(button);
+      button.dataset.zuperMounted = "true";
+      return;
+    }
+
+    const target = this.findTarget();
+    if (!target || !target.parentNode) return;
+
+    this.resetFloatingStyles(button);
+
+    if (this.position === "above") {
+      target.parentNode.insertBefore(button, target);
+    } else {
+      target.parentNode.insertBefore(button, target.nextSibling);
+    }
+
+    button.dataset.zuperMounted = "true";
+  }
+
+  applyFloatingStyles(button) {
+    button.style[this.floatSide] = "16px";
+    button.classList.add("float-button");
+  }
+
+  resetFloatingStyles(button) {
+    button.style.position = "";
+    button.style.top = "";
+    button.style.left = "";
+    button.style.right = "";
+    button.style.transform = "";
+    button.style.zIndex = "";
+  }
+
+  observe() {
+  if (this.observer) return;
+
+  this.observer = new MutationObserver(() => {
+    const btn = this.getExistingButton();
+    if (!btn || btn.dataset.zuperMounted === "true") return;
+    this.insert();
+    console.log("inserting")
+  });
+
+  this.observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+}
+}
+
+
+
+  class ZuperNotifyForm {
+    constructor(config) {
+      this.config = config;
+      this.countries = COUNTRIES;
+
+      this.form = document.getElementById('preview-form');
+      this.notifyBtn = document.getElementById('zuper-notify-button');
+      this.submitBtn = document.getElementById('submit-btn');
+      this.modalOverlay = document.getElementById('modal-overlay');
+      this.closeBtn = document.getElementById('close-btn');
+      this.formFields = document.getElementById('form-fields');
+      this.formFooter = document.getElementById('form-footer');
+      this.variants = {{ product.variants | json }}
+      this.currentVariantId = this.variants[0];
+    }
+
+    init() {
+      if(this.config?.product_detail_show === "hidden") {
+        this.hideNotifyButtons();
+      return null;
+            }
+      this.setAccentColor();
+      this.setupButtons();
+      this.renderFields();
+      this.setupModal();
+      this.setupSubmit();
+      this.tracksTheUrlChanges();
+      new ZuperNotifyBlock({
+  inline: this.config?.product_detail_show === "inline",
+  position: "below"
+}).init();
+    }
+
+  showNotifyButtons() {
+    document.querySelectorAll("#zuper-notify-button").forEach((elem) => {
+      elem.style.display = "inline-flex";
+    });
+  }
+
+  hideNotifyButtons() {
+    document.querySelectorAll("#zuper-notify-button").forEach((elem) => {
+      elem.style.display = "none";
+    });
+  }
+
+    /* ----------------- Styling ----------------- */
+
+    setAccentColor() {
+      document.documentElement.style.setProperty(
+        '--accent-color',
+        this.config.notify_me.normalBgColor
+      );
+    }
+
+    buildButtonStyle(style, isHover = false) {
+      return {
+        color: isHover ? style.hoverTextColor : style.normalTextColor,
+        backgroundColor: isHover ? style.hoverBgColor : style.normalBgColor,
+        fontSize: style.fontSize + 'px',
+        padding: style.padding + 'px',
+        borderRadius: style.borderCorner + 'px'
+      };
+    }
+
+    applyStyles(el, styles) {
+      Object.assign(el.style, styles);
+    }
+
+    setupButtons() {
+      if (this.config.product_detail_show === 'hidden') {
+        this.notifyBtn.style.display = 'none';
+      }
+
+      this.applyStyles(this.notifyBtn, this.buildButtonStyle(this.config.notify_me));
+      this.applyStyles(this.submitBtn, this.buildButtonStyle(this.config.subscribe));
+
+      this.notifyBtn.onmouseenter = () =>
+        this.applyStyles(this.notifyBtn, this.buildButtonStyle(this.config.notify_me, true));
+
+      this.notifyBtn.onmouseleave = () =>
+        this.applyStyles(this.notifyBtn, this.buildButtonStyle(this.config.notify_me));
+
+      this.submitBtn.onmouseenter = () =>
+        this.applyStyles(this.submitBtn, this.buildButtonStyle(this.config.subscribe, true));
+
+      this.submitBtn.onmouseleave = () =>
+        this.applyStyles(this.submitBtn, this.buildButtonStyle(this.config.subscribe));
+    }
+
+    /* ----------------- Fields ----------------- */
+
+    renderFields() {
+      this.formFields.innerHTML = '';
+      this.config.fields.forEach(field => {
+        this.formFields.appendChild(this.createField(field));
+      });
+
+      if (this.config.footer) {
+        this.formFooter.innerHTML = this.config.footer;
+      }
+    }
+
+    createField(field) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'preview-field';
+
+      
+
+      if (field.showLabel && field.label) {
+        wrapper.appendChild(this.createLabel(field));
+      }
+
+      if (field.id === "fld_phone") {
+        return this.createPhoneField(field, wrapper);
+      }
+
+      switch (field.type) {
+        case 'text':
+        case 'textarea':
+          wrapper.appendChild(this.createTextInput(field));
+          break;
+
+        case 'select':
+          wrapper.appendChild(this.createSelect(field));
+          break;
+
+        case 'checkbox':
+        case 'radio':
+          wrapper.appendChild(this.createOptions(field));
+          break;
+
+        case 'terms':
+          wrapper.appendChild(this.createTerms(field));
+          break;
+      }
+
+      return wrapper;
+    }
+
+    createLabel(field) {
+      const label = document.createElement('label');
+      label.className = 'preview-label';
+      label.innerHTML = field.label + (field.required ? '<span class="required">*</span>' : '');
+      return label;
+    }
+
+    createTextInput(field) {
+      const input = document.createElement(field.type === 'textarea' ? 'textarea' : 'input');
+      if (field.type === 'text') input.type = 'text';
+      input.className = 'preview-input';
+      input.name = field.id;
+      input.placeholder = field.placeholder || '';
+      input.required = field.required;
+      return input;
+    }
+
+    createSelect(field) {
+      const select = document.createElement('select');
+      select.className = 'preview-input';
+      select.name = field.id;
+      select.required = field.required;
+
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.disabled = true;
+      placeholder.selected = field.defaultValue === 'none';
+      placeholder.textContent = field.placeholder || 'Select an option';
+      select.appendChild(placeholder);
+
+      (field.options || '').split(/\r?\n|,/).forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.trim();
+        option.textContent = opt.trim();
+        option.selected = opt.trim() === field.defaultValue;
+        select.appendChild(option);
+      });
+
+      return select;
+    }
+
+    createOptions(field) {
+      const container = document.createElement('div');
+      container.className = 'preview-options';
+
+      (field.options || '').split(/\r?\n|,/).forEach(opt => {
+        const label = document.createElement('label');
+        label.className = 'preview-option';
+
+        const input = document.createElement('input');
+        input.type = field.type;
+        input.name = field.id;
+        input.value = opt.trim();
+        input.defaultChecked =
+          opt.trim() === field.defaultValue ||
+          opt.trim() === field.defaultSelected;
+
+        label.append(input, document.createTextNode(opt.trim()));
+        container.appendChild(label);
+      });
+
+      return container;
+    }
+
+    createTerms(field) {
+      const label = document.createElement('label');
+      label.className = 'preview-option';
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.name = field.id;
+      input.required = field.required;
+      input.defaultChecked = field.defaultSelected || field.defaultValue;
+
+      const span = document.createElement('span');
+      span.innerHTML = field.value || '';
+
+      label.append(input, span);
+      return label;
+    }
+
+    createPhoneField(field, wrapper) {
+      wrapper.appendChild(this.createLabel(field));
+
+      const phoneWrap = document.createElement('div');
+      phoneWrap.className = 'preview-phone-wrapper';
+
+      const country = document.createElement('select');
+      country.className = 'preview-phone-country';
+      country.name = 'country';
+
+      this.countries.forEach(c => {
+        const option = document.createElement('option');
+        option.value = JSON.stringify(c);
+        option.textContent = `${c.country} (+${c.code})`;
+        if (c.country === "{{ localization.country.iso_code }}") option.selected = true;
+        country.appendChild(option);
+      });
+
+      const phone = document.createElement('input');
+      phone.type = 'tel';
+      phone.name = 'phone_number';
+      phone.className = 'preview-phone-input';
+      phone.placeholder = field.placeholder;
+
+      phoneWrap.append(country, phone);
+      wrapper.appendChild(phoneWrap);
+
+      return wrapper;
+    }
+
+    /* ----------------- Modal ----------------- */
+
+    setupModal() {
+      this.notifyBtn.onclick = () => this.modalOverlay.classList.add('active');
+      this.closeBtn.onclick = () => this.modalOverlay.classList.remove('active');
+
+      this.modalOverlay.onclick = (e) => {
+        if (e.target === this.modalOverlay) {
+          this.modalOverlay.classList.remove('active');
+        }
+      };
+    }
+
+    closeModal() {
+  this.modalOverlay.classList.remove("active");
+}
+
+    /* -- buider -- */
+    buildSubmissionPayload(form, fieldsConfig, meta = {}) {
+  const formData = new FormData(form);
+
+  const fields = {};
+  let phoneNumber = null;
+  let country = null;
+  let countryCode = null;
+
+  for (const field of fieldsConfig) {
+    const {id, label} = field;
+    if (field.id === "fld_phone") {
+      const countryRaw = formData.get("country");
+      const phoneRaw = formData.get("phone_number");
+
+      if (countryRaw) {
+        const parsed = JSON.parse(countryRaw);
+        country = parsed.country;
+        countryCode = parsed.code;
+      }
+
+      if (phoneRaw) {
+        phoneNumber = phoneRaw;
+      }
+
+      continue;
+    }
+
+    if (field.type === "checkbox") {
+      fields[field.id] = { "label": formData.getAll(field.id),  };
+    } else {
+      const value = formData.get(field.id);
+      if (value !== null) {
+        fields[field.id] = { label: field.label, value: value };
+      }
+    }
+  }
+
+  return {
+    product_id: meta.product_id,
+    variant_id: meta.variant_id,
+    number: phoneNumber,
+    country,
+    country_code: countryCode,
+    store_id: meta.store_id,
+    shop_domain: meta.shop_domain,
+    fields
+  };
+}
+
+
+
+    /* ----------------- Submit ----------------- */
+
+    setupSubmit() {
+      this.form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const validation = validateForm(this.form, this.config.fields);
+        console.log("is valid", validation)
+        if (!validation.isValid) {
+          showValidationErrors(validation.errors);
+          return;
+        }
+
+        clearValidationErrors();
+        // const payload = Object.fromEntries(new FormData(this.form).entries());
+        const payload = this.buildSubmissionPayload(this.form, this.config.fields, {
+        product_id: "{{ product.id }}",
+        variant_id: this.currentVariantId || "{{ product.variants[0].id }}",
+        store_id: "{{ shop.id }}",
+        shop_domain: {{ shop.permanent_domain | json }}
+      });
+        console.log('Form submitted:', payload);
+        alert('Form submitted successfully!');
+        this.closeModal();
+      });
+    }
+
+    getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return Object.fromEntries(params.entries());
+  }
+
+  // Track changes to the URL
+  tracksTheUrlChanges() {
+    let lastParams = {};
+
+    const checkUrlChanges = () => {
+      const currentParams = this.getUrlParams();
+      console.log("getparams", this.getUrlParams())
+      if (currentParams.variant) {
+        this.currentVariantId = currentParams.variant;
+        console.log(this.currentVariantId);
+      }
+
+      if (JSON.stringify(currentParams) !== JSON.stringify(lastParams)) {
+        lastParams = currentParams;
+        const variantId = parseInt(currentParams.variant);
+
+        console.log("inside above check", variantId)
+
+        // if the variant id is nan and string this works but its not works as expected
+        if (isNaN(variantId)) {
+          const productVariant = window.location.href?.split("/").pop();
+          console.log(productVariant)
+          const availableVariant = this.variants.find(
+            (variant) => variant.available,
+          );
+
+          if (availableVariant) {
+            this.hideNotifyButtons();
+          } else {
+            this.showNotifyButtons();
+          }
+          return;
+        }
+
+
+        const foundVariant = this.variants.find(
+          (variant) => variant.id === variantId,
+        );
+        
+        console.log("inside below check", this.variants, foundVariant)
+        if (foundVariant) {
+          if (foundVariant.available) {
+            this.hideNotifyButtons();
+          } else {
+            this.showNotifyButtons();
+          }
+        } else {
+          this.showNotifyButtons();
+        }
+      }
+    };
+
+    window.addEventListener("popstate", checkUrlChanges);
+
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+
+    history.pushState = function (state, title, url) {
+      originalPushState.apply(this, arguments);
+      checkUrlChanges();
+    };
+
+    history.replaceState = function (state, title, url) {
+      originalReplaceState.apply(this, arguments);
+      checkUrlChanges();
+    };
+
+    checkUrlChanges();
+  }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    new ZuperNotifyForm(formData).init();
+  });
+</script>
+
+{% schema %}
+{
+  "name": "Notify Me!",
+  "target": "body",
+  // "javascript": "notify_me.js",
+  "templates": ["product"],
+  "settings": []
+}
+{% endschema %}
